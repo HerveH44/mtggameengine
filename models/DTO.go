@@ -1,13 +1,13 @@
 package models
 
 type HelloResponse struct {
-	AvailableSets      map[string]interface{} `json:"availableSets"`
-	LatestSet          interface{}            `json:"latestSet"`
-	MTGJsonVersion     MTGJsonVersion         `json:"mtgJsonVersion"`
-	BoosterRuleVersion string                 `json:"boosterRulesVersion"`
+	AvailableSets      map[string]interface{} `json:"availableSets,omitempty"`
+	LatestSet          interface{}            `json:"latestSet,omitempty"`
+	MTGJsonVersion     MTGJsonVersion         `json:"mtgJsonVersion,omitempty"`
+	BoosterRuleVersion string                 `json:"boosterRulesVersion,omitempty"`
 }
 
 type MTGJsonVersion struct {
-	Version string `json:"version"`
-	Date    string `json:"date"`
+	Version string `json:"version,omitempty"`
+	Date    string `json:"date,omitempty"`
 }
