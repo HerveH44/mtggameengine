@@ -4,7 +4,9 @@ import (
 	"fmt"
 	socketio "github.com/herveh44/go-socket.io"
 	"log"
+	config2 "mtggameengine/config"
 	"mtggameengine/models"
+	"mtggameengine/services"
 	"net/http"
 )
 
@@ -14,6 +16,13 @@ type HelloRequest struct {
 }
 
 func main() {
+	config, err := config2.Setup()
+	if err != nil {
+		log.Fatal("load config error:", err)
+	}
+
+	poolService := services.NewPoolService(config.PoolServiceBaseURL)
+
 	server, err := socketio.NewServer(nil)
 	if err != nil {
 		log.Fatal("server error:", err)
@@ -31,9 +40,18 @@ func main() {
 		fmt.Println("connected:", s.ID())
 
 		response := models.HelloResponse{
-			MTGJsonVersion:     models.MTGJsonVersion{Version: "4.0.1", Date: "asd"},
+			MTGJsonVersion:     models.MTGJsonVersion{Version: "asd", Date: "asd"},
 			BoosterRuleVersion: "asd",
 		}
+
+		if version, err := poolService.GetVersion(); err == nil {
+			response.MTGJsonVersion = models.MTGJsonVersion{
+				Version: version.Version,
+				Date:    version.Date,
+			}
+			response.BoosterRuleVersion = version.Version
+		}
+
 		s.Emit("set", response)
 		return nil
 	})
@@ -54,7 +72,7 @@ func main() {
 	defer server.Close()
 
 	http.Handle("/engine.io/", server)
-	http.Handle("/", http.FileServer(http.Dir("/home/noname/projects/dr4ft/built")))
+	http.Handle("/", http.FileServer(http.Dir(config.FrontendDir)))
 	log.Println("Serving at localhost:5000...")
 	log.Fatal(http.ListenAndServe(":5000", nil))
 }
