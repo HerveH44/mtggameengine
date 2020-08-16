@@ -39,8 +39,20 @@ func NewDefaultGameService(service PoolService) GameService {
 
 func (s *defaultGameService) CreateGame(game models.CreateGameRequest) (*Game, error) {
 
+	cubeList := strings.Split(game.Cube.List, "\n")
+
+	// Validate cube request
 	if game.Type == "cube draft" || game.Type == "cube sealed" {
-		missingCards, err := s.poolService.CheckCubeList(strings.Split(game.Cube.List, "\n"))
+
+		if game.Type == "cube draft" && game.Cube.Cards*game.Cube.Packs*game.Seats < len(cubeList) {
+			return nil, fmt.Errorf("not enough cards")
+		}
+
+		if game.Type == "cube sealed" && game.Cube.CubePoolSize*game.Seats < len(cubeList) {
+			return nil, fmt.Errorf("not enough cards")
+		}
+
+		missingCards, err := s.poolService.CheckCubeList(cubeList)
 		if err != nil {
 			fmt.Println(err.Error())
 			return nil, fmt.Errorf("unexpected server error")
@@ -60,6 +72,6 @@ func (s *defaultGameService) CreateGame(game models.CreateGameRequest) (*Game, e
 		Sets:       game.Sets,
 		ModernOnly: game.ModernOnly,
 		TotalChaos: game.TotalChaos,
-		CubeList:   strings.Split(game.Cube.List, "\n"),
+		CubeList:   cubeList,
 	}, nil
 }
