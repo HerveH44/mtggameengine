@@ -39,12 +39,23 @@ func main() {
 			Name: name,
 		})
 		helloHandler(s)
+		/**
+		broadcast to all after join :
+		["set",{"numPlayers":4,"numGames":5,"numActiveGames":3}]
+		["set",{"roomInfo":[]}]
+		*/
 		return nil
 	})
 	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGame) {
 		game := services.CreateGame(msg)
 		s.SetContext(game)
 		s.Emit("route", "g/"+game.ID)
+		/**
+		To implement after join:
+		["set",{"isHost":true,"round":0,"self":0,"sets":["EMN","EMN","EMN"],"gameId":"6cb703c0-dfa6-11ea-ac3b-6d51a0d54dfc"}]
+		["gameInfos",{"type":"draft","packsInfo":"EMN / EMN / EMN","sets":["EMN","EMN","EMN"]}]
+		["set",{"players":[{"name":"dr4fter","time":0,"packs":0,"isBot":false,"isConnected":true}],"gameSeats":4}]
+		*/
 	})
 	server.OnEvent("join", func(s socketio.Conn, msg string) {
 		fmt.Println("join:", msg)
