@@ -42,8 +42,9 @@ func main() {
 		return nil
 	})
 	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGame) {
-		fmt.Println("create:", msg)
-		s.Emit("route", "g/asd")
+		game := services.CreateGame(msg)
+		s.SetContext(game)
+		s.Emit("route", "g/"+game.ID)
 	})
 	server.OnEvent("join", func(s socketio.Conn, msg string) {
 		fmt.Println("join:", msg)

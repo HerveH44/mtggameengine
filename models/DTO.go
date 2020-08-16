@@ -20,4 +20,5 @@ type CreateGame struct {
 	ModernOnly bool     `json:"modernOnly"`
 	TotalChaos bool     `json:"totalChaos"`
 	Sets       []string `json:"sets"`
+	CubeList   string   `json:"list"`
 }
