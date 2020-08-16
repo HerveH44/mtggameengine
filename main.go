@@ -22,6 +22,7 @@ func main() {
 	}
 
 	poolService := services.NewPoolService(config.PoolServiceBaseURL)
+	helloHandler := services.NewHelloHandler(poolService)
 
 	server, err := socketio.NewServer(nil)
 	if err != nil {
@@ -32,27 +33,12 @@ func main() {
 		values := url.Query()
 		id := values.Get("id")
 		name := values.Get("name")
-		fmt.Println("id:", id, "name:", name)
+		fmt.Println("Connnected id:", id, "name:", name)
 		s.SetContext(HelloRequest{
 			Id:   id,
 			Name: name,
 		})
-		fmt.Println("connected:", s.ID())
-
-		response := models.HelloResponse{
-			MTGJsonVersion:     models.MTGJsonVersion{Version: "asd", Date: "asd"},
-			BoosterRuleVersion: "asd",
-		}
-
-		if version, err := poolService.GetVersion(); err == nil {
-			response.MTGJsonVersion = models.MTGJsonVersion{
-				Version: version.Version,
-				Date:    version.Date,
-			}
-			response.BoosterRuleVersion = version.Version
-		}
-
-		s.Emit("set", response)
+		helloHandler(s)
 		return nil
 	})
 	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGame) {

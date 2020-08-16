@@ -6,19 +6,20 @@ import (
 	"fmt"
 	"github.com/patrickmn/go-cache"
 	"io/ioutil"
+	"mtggameengine/models"
 	"net/http"
 	"time"
 )
 
 type PoolService interface {
-	GetVersion() (VersionResponse, error)
-	GetAvailableSets() (*AvailableSetsMap, error)
-	GetLatestSet() (LatestSetResponse, error)
+	GetVersion() (models.VersionResponse, error)
+	GetAvailableSets() (*models.AvailableSetsMap, error)
+	GetLatestSet() (models.LatestSetResponse, error)
 
 	CheckCubeList(list []string) ([]string, error)
 
 	// Keep the pool service to determine what we want ?
-	MakePool() ([]CardPool, error)
+	MakePool() ([]models.CardPool, error)
 
 	// specific pools
 	//MakeChaosPool(request ChaosRequest) []CardPool
@@ -36,12 +37,12 @@ type defaultPoolService struct {
 	cache   *cache.Cache
 }
 
-func (d *defaultPoolService) GetLatestSet() (latestSet LatestSetResponse, err error) {
+func (d *defaultPoolService) GetLatestSet() (latestSet models.LatestSetResponse, err error) {
 	if cachedSet, ok := d.cache.Get("latestSet"); ok {
-		return cachedSet.(LatestSetResponse), err
+		return cachedSet.(models.LatestSetResponse), err
 	}
 
-	response, err := http.Get(fmt.Sprintf("%sets/latest", d.poolURL))
+	response, err := http.Get(fmt.Sprintf("%ssets/latest", d.poolURL))
 	if err != nil {
 		return
 	}
@@ -59,9 +60,9 @@ func (d *defaultPoolService) GetLatestSet() (latestSet LatestSetResponse, err er
 	return
 }
 
-func (d *defaultPoolService) GetVersion() (version VersionResponse, err error) {
+func (d *defaultPoolService) GetVersion() (version models.VersionResponse, err error) {
 	if cachedVersion, ok := d.cache.Get("version"); ok {
-		return cachedVersion.(VersionResponse), err
+		return cachedVersion.(models.VersionResponse), err
 	}
 
 	response, err := http.Get(fmt.Sprintf("%sabout", d.poolURL))
@@ -81,9 +82,11 @@ func (d *defaultPoolService) GetVersion() (version VersionResponse, err error) {
 	return
 }
 
-func (d *defaultPoolService) GetAvailableSets() (sets *AvailableSetsMap, err error) {
+func (d *defaultPoolService) GetAvailableSets() (sets *models.AvailableSetsMap, err error) {
+	setsMap := make(models.AvailableSetsMap)
+	sets = &setsMap
 	if cachedSetMap, ok := d.cache.Get("sets"); ok {
-		return cachedSetMap.(*AvailableSetsMap), err
+		return cachedSetMap.(*models.AvailableSetsMap), err
 	}
 
 	response, err := http.Get(fmt.Sprintf("%ssets", d.poolURL))
@@ -105,7 +108,7 @@ func (d *defaultPoolService) GetAvailableSets() (sets *AvailableSetsMap, err err
 }
 
 func (d *defaultPoolService) CheckCubeList(list []string) ([]string, error) {
-	request := CubeListRequest{list}
+	request := models.CubeListRequest{Cubelist: list}
 	body, err := json.Marshal(request)
 	if err != nil {
 		return nil, err
@@ -125,12 +128,12 @@ func (d *defaultPoolService) CheckCubeList(list []string) ([]string, error) {
 		return nil, err
 	}
 
-	var errorResponse CubeListErrorResponse
+	var errorResponse models.CubeListErrorResponse
 	err = json.Unmarshal(responseData, &errorResponse)
 
 	return errorResponse.Error, err
 }
 
-func (d *defaultPoolService) MakePool() (pool []CardPool, err error) {
+func (d *defaultPoolService) MakePool() (pool []models.CardPool, err error) {
 	panic("implement me")
 }

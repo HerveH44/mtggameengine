@@ -1,4 +1,4 @@
-package services
+package models
 
 type SetResponse struct {
 	Code string `json:"code"`
