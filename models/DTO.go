@@ -12,7 +12,7 @@ type MTGJsonVersion struct {
 	Date    string `json:"date,omitempty"`
 }
 
-type CreateGame struct {
+type CreateGameRequest struct {
 	Type       string   `json:"type"`
 	Seats      int      `json:"seats"`
 	Title      string   `json:"title"`
@@ -20,5 +20,10 @@ type CreateGame struct {
 	ModernOnly bool     `json:"modernOnly"`
 	TotalChaos bool     `json:"totalChaos"`
 	Sets       []string `json:"sets"`
-	CubeList   string   `json:"list"`
+	Cube       struct {
+		List         string `json:"list"`
+		Cards        int    `json:"cards"`
+		Packs        int    `json:"packs"`
+		CubePoolSize int    `json:"cubePoolSize"`
+	} `json:"cube"`
 }

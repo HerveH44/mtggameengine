@@ -124,7 +124,7 @@ func (d *defaultPoolService) CheckCubeList(list []string) ([]string, error) {
 	}
 
 	responseData, err := ioutil.ReadAll(response.Body)
-	if err == nil {
+	if err != nil {
 		return nil, err
 	}
 

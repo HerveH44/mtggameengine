@@ -23,6 +23,7 @@ func main() {
 
 	poolService := services.NewPoolService(config.PoolServiceBaseURL)
 	helloHandler := services.NewHelloHandler(poolService)
+	gameService := services.NewDefaultGameService(poolService)
 
 	server, err := socketio.NewServer(nil)
 	if err != nil {
@@ -46,8 +47,13 @@ func main() {
 		*/
 		return nil
 	})
-	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGame) {
-		game := services.CreateGame(msg)
+	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGameRequest) {
+		game, err := gameService.CreateGame(msg)
+		if err != nil {
+			s.Emit("error", err.Error())
+			return
+		}
+
 		s.SetContext(game)
 		s.Emit("route", "g/"+game.ID)
 		/**
