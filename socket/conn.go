@@ -101,7 +101,7 @@ func (c *conn) connect() error {
 	}
 	root := newNamespaceConn(c, "/", rootHandler.broadcast)
 	c.namespaces[""] = root
-	root.Join(root.ID())
+	root.Join("/")
 
 	for _, ns := range c.namespaces {
 		ns.SetContext(c.Conn.Context())
