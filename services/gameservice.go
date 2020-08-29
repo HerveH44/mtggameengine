@@ -8,8 +8,12 @@ import (
 	"strings"
 )
 
-type Game struct {
-	ID        string
+type Game interface {
+	ID() string
+}
+
+type defaultGame struct {
+	id        string
 	Type      string
 	Title     string
 	Seats     int
@@ -29,30 +33,38 @@ type Game struct {
 	CubeList []string
 }
 
+func (g *defaultGame) ID() string {
+	return g.id
+}
+
 type GameService interface {
-	CreateGame(game models.CreateGameRequest, conn socketio.Conn) (*Game, error)
+	CreateGame(game models.CreateGameRequest, conn socketio.Conn) (Game, error)
 }
 
 type defaultGameService struct {
 	poolService PoolService
+	games       map[string]Game
 }
 
 func NewDefaultGameService(service PoolService) GameService {
-	return &defaultGameService{poolService: service}
+	return &defaultGameService{
+		poolService: service,
+		games:       make(map[string]Game),
+	}
 }
 
-func (s *defaultGameService) CreateGame(game models.CreateGameRequest, conn socketio.Conn) (*Game, error) {
+func (s *defaultGameService) CreateGame(gameRequest models.CreateGameRequest, conn socketio.Conn) (Game, error) {
 
-	cubeList := strings.Split(game.Cube.List, "\n")
+	cubeList := strings.Split(gameRequest.Cube.List, "\n")
 
 	// Validate cube request
-	if game.Type == "cube draft" || game.Type == "cube sealed" {
+	if gameRequest.Type == "cube draft" || gameRequest.Type == "cube sealed" {
 
-		if game.Type == "cube draft" && game.Cube.Cards*game.Cube.Packs*game.Seats < len(cubeList) {
+		if gameRequest.Type == "cube draft" && gameRequest.Cube.Cards*gameRequest.Cube.Packs*gameRequest.Seats < len(cubeList) {
 			return nil, fmt.Errorf("not enough cards")
 		}
 
-		if game.Type == "cube sealed" && game.Cube.CubePoolSize*game.Seats < len(cubeList) {
+		if gameRequest.Type == "cube sealed" && gameRequest.Cube.CubePoolSize*gameRequest.Seats < len(cubeList) {
 			return nil, fmt.Errorf("not enough cards")
 		}
 
@@ -67,16 +79,22 @@ func (s *defaultGameService) CreateGame(game models.CreateGameRequest, conn sock
 		}
 	}
 
-	return &Game{
-		ID:         uuid.New().String(),
+	game := defaultGame{
+		id:         uuid.New().String(),
 		HostID:     conn.ID(),
-		Type:       game.Type,
-		Title:      game.Title,
-		Seats:      game.Seats,
-		IsPrivate:  game.IsPrivate,
-		Sets:       game.Sets,
-		ModernOnly: game.ModernOnly,
-		TotalChaos: game.TotalChaos,
+		Type:       gameRequest.Type,
+		Title:      gameRequest.Title,
+		Seats:      gameRequest.Seats,
+		IsPrivate:  gameRequest.IsPrivate,
+		Sets:       gameRequest.Sets,
+		ModernOnly: gameRequest.ModernOnly,
+		TotalChaos: gameRequest.TotalChaos,
 		CubeList:   cubeList,
-	}, nil
+	}
+	s.addGame(&game)
+	return &game, nil
+}
+
+func (s *defaultGameService) addGame(g Game) {
+	s.games[g.ID()] = g
 }
