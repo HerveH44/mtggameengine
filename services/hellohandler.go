@@ -2,8 +2,8 @@ package services
 
 import (
 	"fmt"
-	socketio "github.com/herveh44/go-socket.io"
 	"mtggameengine/models"
+	socketio "mtggameengine/socket"
 )
 
 type HelloHandler func(conn socketio.Conn)

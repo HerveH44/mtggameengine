@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	socketio "github.com/herveh44/go-socket.io"
 	"log"
 	config2 "mtggameengine/config"
 	"mtggameengine/models"
 	"mtggameengine/services"
+	socketio "mtggameengine/socket"
 	"net/http"
 )
 
@@ -40,6 +40,7 @@ func main() {
 			Name: name,
 		})
 		helloHandler(s)
+		server.BroadcastToRoom("/", "/", "set", models.LobbyStats{Players: server.RoomLen("/", "/")})
 		/**
 		broadcast to all after join :
 		["set",{"numPlayers":4,"numGames":5,"numActiveGames":3}]

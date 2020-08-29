@@ -27,3 +27,9 @@ type CreateGameRequest struct {
 		CubePoolSize int    `json:"cubePoolSize"`
 	} `json:"cube"`
 }
+
+type LobbyStats struct {
+	Players     int `json:"numPlayers"`
+	Games       int `json:"numGames"`
+	ActiveGames int `json:"numActiveGames"`
+}
