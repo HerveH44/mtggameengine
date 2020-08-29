@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"mtggameengine/models"
+	socketio "mtggameengine/socket"
 	"strings"
 )
 
@@ -13,6 +14,9 @@ type Game struct {
 	Title     string
 	Seats     int
 	IsPrivate bool
+
+	//Players
+	HostID string
 
 	// Regular
 	Sets []string
@@ -26,7 +30,7 @@ type Game struct {
 }
 
 type GameService interface {
-	CreateGame(game models.CreateGameRequest) (*Game, error)
+	CreateGame(game models.CreateGameRequest, conn socketio.Conn) (*Game, error)
 }
 
 type defaultGameService struct {
@@ -37,7 +41,7 @@ func NewDefaultGameService(service PoolService) GameService {
 	return &defaultGameService{poolService: service}
 }
 
-func (s *defaultGameService) CreateGame(game models.CreateGameRequest) (*Game, error) {
+func (s *defaultGameService) CreateGame(game models.CreateGameRequest, conn socketio.Conn) (*Game, error) {
 
 	cubeList := strings.Split(game.Cube.List, "\n")
 
@@ -65,6 +69,7 @@ func (s *defaultGameService) CreateGame(game models.CreateGameRequest) (*Game, e
 
 	return &Game{
 		ID:         uuid.New().String(),
+		HostID:     conn.ID(),
 		Type:       game.Type,
 		Title:      game.Title,
 		Seats:      game.Seats,

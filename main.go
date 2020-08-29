@@ -49,7 +49,7 @@ func main() {
 		return nil
 	})
 	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGameRequest) {
-		game, err := gameService.CreateGame(msg)
+		game, err := gameService.CreateGame(msg, s)
 		if err != nil {
 			s.Emit("error", err.Error())
 			return

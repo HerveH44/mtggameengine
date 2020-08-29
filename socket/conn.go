@@ -16,6 +16,7 @@ import (
 type Conn interface {
 	// ID returns session id
 	ID() string
+	Name() string
 	Close() error
 	URL() url.URL
 	LocalAddr() net.Addr

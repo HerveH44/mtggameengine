@@ -114,3 +114,17 @@ func (c *namespaceConn) LeaveAll() {
 func (c *namespaceConn) Rooms() []string {
 	return c.broadcast.Rooms(c)
 }
+
+func (c *namespaceConn) ID() string {
+	url := c.URL()
+	values := url.Query()
+	id := values.Get("id")
+	return id
+}
+
+func (c *namespaceConn) Name() string {
+	url := c.URL()
+	values := url.Query()
+	name := values.Get("name")
+	return name
+}
