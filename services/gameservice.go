@@ -21,7 +21,7 @@ type defaultGameService struct {
 func (s *defaultGameService) Join(gameId string, conn socketio.Conn) {
 	// check if game exists
 	if _, ok := s.games[gameId]; !ok {
-		conn.Emit("error", fmt.Sprint(gameId, "does not exist"))
+		conn.Emit("error", fmt.Sprint("game", gameId, "does not exist"))
 		return
 	}
 

@@ -98,6 +98,10 @@ func (c *namespaceConn) Emit(event string, v ...interface{}) {
 	c.conn.write(args)
 }
 
+func (c *namespaceConn) Set(v interface{}) {
+	c.Emit("set", v)
+}
+
 func (c *namespaceConn) Join(room string) {
 	c.broadcast.Join(room, c)
 }

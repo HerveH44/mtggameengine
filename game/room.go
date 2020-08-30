@@ -8,6 +8,7 @@ import (
 
 type Room interface {
 	Join(conn socketio.Conn)
+	Broadcast(event string, v interface{})
 }
 
 type defaultRoom struct {
@@ -31,6 +32,12 @@ func (c *Connections) remove(conn socketio.Conn) {
 	}
 }
 
+func (c *Connections) broadcast(event string, v interface{}) {
+	for _, conn := range *c {
+		conn.Emit(event, v)
+	}
+}
+
 type Message struct {
 	name string
 	Text string
@@ -44,7 +51,7 @@ func (d *defaultRoom) Join(conn socketio.Conn) {
 	d.connections = append(d.connections, conn)
 
 	// Handle say
-	conn.OnEvent("say", func(msg string) {
+	conn.OnEvent("say", func(c socketio.Conn, msg string) {
 		message := Message{
 			name: conn.Name(),
 			Text: msg,
@@ -61,20 +68,24 @@ func (d *defaultRoom) Join(conn socketio.Conn) {
 	})
 
 	//Handle Name
-	conn.OnEvent("name", func(name string) {
-		conn.SetName(name[:15])
+	conn.OnEvent("name", func(c socketio.Conn, name string) {
+		c.SetName(name[:15])
 	})
 
 	//Handle exit
-	conn.OnEvent("exit", func() {
+	conn.OnEvent("exit", func(c socketio.Conn) {
 		d.lock.Lock()
 		defer d.lock.Unlock()
-		d.connections.remove(conn)
+		d.connections.remove(c)
 
-		conn.RemoveEvent("say")
-		conn.RemoveEvent("exit")
+		c.RemoveEvent("say")
+		c.RemoveEvent("exit")
 	})
 
 	// Send all messages
 	conn.Emit("chat", d.messages)
+}
+
+func (d *defaultRoom) Broadcast(event string, v interface{}) {
+	d.connections.broadcast(event, v)
 }

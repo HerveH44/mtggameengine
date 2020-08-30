@@ -33,6 +33,7 @@ type Conn interface {
 	SetContext(v interface{})
 	Namespace() string
 	Emit(msg string, v ...interface{})
+	Set(interface{})
 	Err(msg string)
 
 	// Broadcast server side apis
