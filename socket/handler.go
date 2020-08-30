@@ -32,25 +32,6 @@ func newEventFunc(f interface{}) *funcHandler {
 	}
 }
 
-func newAckFunc(f interface{}) *funcHandler {
-	fv := reflect.ValueOf(f)
-	if fv.Kind() != reflect.Func {
-		panic("ack callback must be a func.")
-	}
-	ft := fv.Type()
-	argTypes := make([]reflect.Type, ft.NumIn())
-	for i := range argTypes {
-		argTypes[i] = ft.In(i)
-	}
-	if len(argTypes) == 0 {
-		argTypes = nil
-	}
-	return &funcHandler{
-		argTypes: argTypes,
-		f:        fv,
-	}
-}
-
 func (h *funcHandler) Call(args []reflect.Value) (ret []reflect.Value, err error) {
 	defer func() {
 		if r := recover(); r != nil {

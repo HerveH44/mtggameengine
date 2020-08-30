@@ -2,58 +2,41 @@ package services
 
 import (
 	"fmt"
-	"github.com/google/uuid"
+	"mtggameengine/game"
 	"mtggameengine/models"
 	socketio "mtggameengine/socket"
 	"strings"
 )
 
-type Game interface {
-	ID() string
-}
-
-type defaultGame struct {
-	id        string
-	Type      string
-	Title     string
-	Seats     int
-	IsPrivate bool
-
-	//Players
-	HostID string
-
-	// Regular
-	Sets []string
-
-	// Chaos
-	ModernOnly bool
-	TotalChaos bool
-
-	//Cube
-	CubeList []string
-}
-
-func (g *defaultGame) ID() string {
-	return g.id
-}
-
 type GameService interface {
-	CreateGame(game models.CreateGameRequest, conn socketio.Conn) (Game, error)
+	CreateGame(game models.CreateGameRequest, conn socketio.Conn) (game.Game, error)
+	Join(gameId string, conn socketio.Conn)
 }
 
 type defaultGameService struct {
 	poolService PoolService
-	games       map[string]Game
+	games       map[string]game.Game
+}
+
+func (s *defaultGameService) Join(gameId string, conn socketio.Conn) {
+	// check if game exists
+	if _, ok := s.games[gameId]; !ok {
+		conn.Emit("error", fmt.Sprint(gameId, "does not exist"))
+		return
+	}
+
+	// add the connection to the rooms connection map
+	s.games[gameId].Join(conn)
 }
 
 func NewDefaultGameService(service PoolService) GameService {
 	return &defaultGameService{
 		poolService: service,
-		games:       make(map[string]Game),
+		games:       make(map[string]game.Game),
 	}
 }
 
-func (s *defaultGameService) CreateGame(gameRequest models.CreateGameRequest, conn socketio.Conn) (Game, error) {
+func (s *defaultGameService) CreateGame(gameRequest models.CreateGameRequest, conn socketio.Conn) (game.Game, error) {
 
 	cubeList := strings.Split(gameRequest.Cube.List, "\n")
 
@@ -79,22 +62,12 @@ func (s *defaultGameService) CreateGame(gameRequest models.CreateGameRequest, co
 		}
 	}
 
-	game := defaultGame{
-		id:         uuid.New().String(),
-		HostID:     conn.ID(),
-		Type:       gameRequest.Type,
-		Title:      gameRequest.Title,
-		Seats:      gameRequest.Seats,
-		IsPrivate:  gameRequest.IsPrivate,
-		Sets:       gameRequest.Sets,
-		ModernOnly: gameRequest.ModernOnly,
-		TotalChaos: gameRequest.TotalChaos,
-		CubeList:   cubeList,
-	}
-	s.addGame(&game)
-	return &game, nil
+	newGame := game.CreateGame(gameRequest, cubeList)
+	newGame.SetHost(conn.ID())
+	s.addGame(newGame)
+	return newGame, nil
 }
 
-func (s *defaultGameService) addGame(g Game) {
+func (s *defaultGameService) addGame(g game.Game) {
 	s.games[g.ID()] = g
 }

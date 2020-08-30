@@ -17,6 +17,8 @@ type Conn interface {
 	// ID returns session id
 	ID() string
 	Name() string
+	SetName(name string)
+
 	Close() error
 	URL() url.URL
 	LocalAddr() net.Addr
@@ -31,12 +33,18 @@ type Conn interface {
 	SetContext(v interface{})
 	Namespace() string
 	Emit(msg string, v ...interface{})
+	Err(msg string)
 
 	// Broadcast server side apis
 	Join(room string)
 	Leave(room string)
 	LeaveAll()
 	Rooms() []string
+
+	// Attempt to handle event per conn
+	OnEvent(event string, f interface{})
+	Dispatch(event string, args []reflect.Value) ([]reflect.Value, error)
+	RemoveEvent(event string)
 }
 
 type errorMessage struct {
@@ -50,6 +58,7 @@ type writePacket struct {
 
 type conn struct {
 	engineio.Conn
+	name       string
 	encoder    *parser.Encoder
 	decoder    *parser.Decoder
 	errorChan  chan errorMessage
@@ -62,8 +71,13 @@ type conn struct {
 }
 
 func newConn(c engineio.Conn, handlers map[string]*namespaceHandler) (*conn, error) {
+	url := c.URL()
+	values := url.Query()
+	name := values.Get("name")
+
 	ret := &conn{
 		Conn:       c,
+		name:       name,
 		encoder:    parser.NewEncoder(c),
 		decoder:    parser.NewDecoder(c),
 		errorChan:  make(chan errorMessage),
@@ -77,6 +91,14 @@ func newConn(c engineio.Conn, handlers map[string]*namespaceHandler) (*conn, err
 		return nil, err
 	}
 	return ret, nil
+}
+
+func (c *conn) Name() string {
+	return c.name
+}
+
+func (c *conn) SetName(name string) {
+	c.name = name
 }
 
 func (c *conn) Close() error {

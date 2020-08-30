@@ -61,6 +61,7 @@ func main() {
 	})
 	server.OnEvent("join", func(s socketio.Conn, msg string) {
 		fmt.Println("join:", msg)
+		gameService.Join(msg, s)
 		/**
 		To implement after join:
 		["set",{"isHost":true,"round":0,"self":0,"sets":["EMN","EMN","EMN"],"gameId":"6cb703c0-dfa6-11ea-ac3b-6d51a0d54dfc"}]

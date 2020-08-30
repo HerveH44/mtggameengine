@@ -2,7 +2,6 @@ package socketio
 
 import (
 	"reflect"
-	"sync"
 )
 
 type namespaceHandler struct {
@@ -54,27 +53,27 @@ func (h *namespaceHandler) dispatch(c Conn, event string, args []reflect.Value) 
 		return nil, err
 	}
 
-	namespaceHandler := h.events[event]
-	if namespaceHandler == nil {
-		return nil, nil
+	funcHandler := h.events[event]
+	if funcHandler == nil {
+		return c.Dispatch(event, args)
 	}
-	return namespaceHandler.Call(append([]reflect.Value{reflect.ValueOf(c)}, args...))
+	return funcHandler.Call(append([]reflect.Value{reflect.ValueOf(c)}, args...))
 }
 
 type namespaceConn struct {
 	*conn
 	namespace string
-	acks      sync.Map
 	context   interface{}
 	broadcast Broadcast
+	events    map[string]*funcHandler
 }
 
 func newNamespaceConn(conn *conn, namespace string, broadcast Broadcast) *namespaceConn {
 	return &namespaceConn{
 		conn:      conn,
 		namespace: namespace,
-		acks:      sync.Map{},
 		broadcast: broadcast,
+		events:    make(map[string]*funcHandler),
 	}
 }
 
@@ -122,9 +121,22 @@ func (c *namespaceConn) ID() string {
 	return id
 }
 
-func (c *namespaceConn) Name() string {
-	url := c.URL()
-	values := url.Query()
-	name := values.Get("name")
-	return name
+func (c *namespaceConn) OnEvent(event string, f interface{}) {
+	c.events[event] = newEventFunc(f)
+}
+
+func (c *namespaceConn) RemoveEvent(event string) {
+	delete(c.events, event)
+}
+
+func (c *namespaceConn) Err(msg string) {
+	c.Emit("error", msg)
+}
+
+func (c *namespaceConn) Dispatch(event string, args []reflect.Value) ([]reflect.Value, error) {
+	funcHandler := c.events[event]
+	if funcHandler == nil {
+		return nil, nil
+	}
+	return funcHandler.Call(append([]reflect.Value{reflect.ValueOf(c)}, args...))
 }
