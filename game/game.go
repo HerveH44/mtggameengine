@@ -84,6 +84,11 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 		return
 	}
 
+	if g.Seats == len(g.players) {
+		conn.Err("game is already full")
+		return
+	}
+
 	g.Room.Join(conn)
 
 	//Pick Delegate?
