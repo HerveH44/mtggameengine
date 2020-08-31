@@ -133,6 +133,10 @@ func (c *namespaceConn) RemoveEvent(event string) {
 	delete(c.events, event)
 }
 
+func (c *namespaceConn) RemoveAllEvents() {
+	c.events = make(map[string][]*funcHandler)
+}
+
 func (c *namespaceConn) Err(msg string) {
 	c.Emit("error", msg)
 }

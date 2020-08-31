@@ -44,3 +44,8 @@ func (h *Human) Attach(conn socketio.Conn) {
 func (h *Human) IsConnected() bool {
 	return h.isConnected
 }
+
+func (h *Human) Kick() {
+	// Should turn to a bot
+	h.isConnected = false
+}

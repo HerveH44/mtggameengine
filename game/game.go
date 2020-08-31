@@ -81,6 +81,7 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 	// get write lock
 	g.lock.Lock()
 	defer g.lock.Unlock()
+	conn.RemoveAllEvents()
 
 	for _, player := range g.players {
 		// link conn to pl
@@ -108,6 +109,9 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 	player := pl.NewHuman(conn, conn.ID() == g.HostID)
 	g.players.Add(player)
 	g.doJoin(player)
+	if player.IsHost() {
+		g.SetHostPermissions(player)
+	}
 }
 
 func (g *defaultGame) onConnectionExit(c socketio.Conn) {
@@ -126,6 +130,10 @@ func (g *defaultGame) onConnectionExit(c socketio.Conn) {
 	c.RemoveEvent("start") //a bit out of the blue?
 	i := g.players.indexOfID(c.ID())
 	g.players.Remove(i)
+	g.broadcastPosition()
+}
+
+func (g *defaultGame) broadcastPosition() {
 	for index, player := range g.players {
 		if human, ok := player.(*pl.Human); ok {
 			human.Set(PlayerBasicInfo{
@@ -227,6 +235,50 @@ func (g *defaultGame) doJoin(player *pl.Human) {
 		g.meta()
 	})
 	g.meta()
+}
+
+func (g *defaultGame) SetHostPermissions(player *pl.Human) {
+	player.OnEvent("start", func(c socketio.Conn, msg string) {
+		log.Println("start: ", msg)
+	})
+	player.OnEvent("kick", func(c socketio.Conn, index int) {
+		if index < 0 || index >= len(g.players) {
+			c.Err("player index is out of players range")
+		}
+
+		player := g.players[index]
+
+		if player.IsBot() {
+			return
+		}
+
+		human := player.(*pl.Human)
+		log.Println(player.Name(), "is being kicked out from the game")
+		if g.gameStarted() {
+			human.Kick()
+		} else {
+			g.onConnectionExit(human)
+		}
+
+		human.Err("you were kicked")
+		g.meta()
+	})
+	player.OnEvent("swap", func(c socketio.Conn, msg [2]int) {
+		// get write lock
+		g.lock.Lock()
+		defer g.lock.Unlock()
+
+		l := len(g.players)
+		i, j := msg[0], msg[1]
+
+		if j < 0 || j >= l {
+			return
+		}
+
+		g.players[i], g.players[j] = g.players[j], g.players[i]
+		g.broadcastPosition()
+		g.meta()
+	})
 }
 
 func CreateGame(gameRequest models.CreateGameRequest, cubeList []string) Game {

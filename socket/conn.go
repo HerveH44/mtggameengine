@@ -46,6 +46,7 @@ type Conn interface {
 	OnEvent(event string, f interface{})
 	Dispatch(event string, args []reflect.Value) ([]reflect.Value, error)
 	RemoveEvent(event string)
+	RemoveAllEvents()
 }
 
 type errorMessage struct {
