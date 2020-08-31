@@ -237,8 +237,15 @@ func (g *defaultGame) doJoin(player *pl.Human) {
 	g.meta()
 }
 
+type StartRequest struct {
+	AddBots        bool   `json:"addBots"`
+	UseTimer       bool   `json:"useTimer"`
+	TimerLength    string `json:"timerLength"`
+	ShufflePlayers bool   `json:"shufflePlayers"`
+}
+
 func (g *defaultGame) SetHostPermissions(player *pl.Human) {
-	player.OnEvent("start", func(c socketio.Conn, msg string) {
+	player.OnEvent("start", func(c socketio.Conn, msg StartRequest) {
 		log.Println("start: ", msg)
 	})
 	player.OnEvent("kick", func(c socketio.Conn, index int) {
