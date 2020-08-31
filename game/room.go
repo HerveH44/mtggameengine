@@ -8,6 +8,7 @@ import (
 
 type Room interface {
 	Join(conn socketio.Conn)
+	Leave(conn socketio.Conn)
 	Broadcast(event string, v interface{})
 }
 
@@ -17,6 +18,16 @@ type defaultRoom struct {
 	isPrivate   bool
 	timeCreated time.Time
 	lock        sync.RWMutex
+}
+
+func newRoom(isPrivate bool) Room {
+	return &defaultRoom{
+		messages:    make([]Message, 0),
+		connections: make(Connections, 0),
+		isPrivate:   isPrivate,
+		timeCreated: time.Now(),
+		lock:        sync.RWMutex{},
+	}
 }
 
 type Connections []socketio.Conn
@@ -72,18 +83,15 @@ func (d *defaultRoom) Join(conn socketio.Conn) {
 		c.SetName(name[:15])
 	})
 
-	//Handle exit
-	conn.OnEvent("exit", func(c socketio.Conn) {
-		d.lock.Lock()
-		defer d.lock.Unlock()
-		d.connections.remove(c)
-
-		c.RemoveEvent("say")
-		c.RemoveEvent("exit")
-	})
-
 	// Send all messages
 	conn.Emit("chat", d.messages)
+}
+
+func (d *defaultRoom) Leave(conn socketio.Conn) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.connections.remove(conn)
+	conn.RemoveEvent("say")
 }
 
 func (d *defaultRoom) Broadcast(event string, v interface{}) {

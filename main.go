@@ -60,20 +60,14 @@ func main() {
 
 	})
 	server.OnEvent("join", func(s socketio.Conn, msg string) {
-		fmt.Println("join:", msg)
 		gameService.Join(msg, s)
-		/**
-		To implement after join:
-		["set",{"isHost":true,"round":0,"self":0,"sets":["EMN","EMN","EMN"],"gameId":"6cb703c0-dfa6-11ea-ac3b-6d51a0d54dfc"}]
-		["gameInfos",{"type":"draft","packsInfo":"EMN / EMN / EMN","sets":["EMN","EMN","EMN"]}]
-		["set",{"players":[{"name":"dr4fter","time":0,"packs":0,"isBot":false,"isConnected":true}],"gameSeats":4}]
-		*/
 	})
 	server.OnError(func(s socketio.Conn, e error) {
 		fmt.Println("meet error:", e)
 	})
-	server.OnDisconnect(func(s socketio.Conn, reason string) {
+	server.OnDisconnect(func(c socketio.Conn, reason string) {
 		fmt.Println("closed", reason)
+		c.Dispatch("exit", nil)
 	})
 	go server.Serve()
 	defer server.Close()

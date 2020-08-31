@@ -19,7 +19,7 @@ type PoolService interface {
 	CheckCubeList(list []string) ([]string, error)
 
 	// Keep the pool service to determine what we want ?
-	MakePool() ([]models.CardPool, error)
+	MakePool() ([]models.Pack, error)
 
 	// specific pools
 	//MakeChaosPool(request ChaosRequest) []CardPool
@@ -134,6 +134,6 @@ func (d *defaultPoolService) CheckCubeList(list []string) ([]string, error) {
 	return errorResponse.Error, err
 }
 
-func (d *defaultPoolService) MakePool() (pool []models.CardPool, err error) {
+func (d *defaultPoolService) MakePool() (pool []models.Pack, err error) {
 	panic("implement me")
 }

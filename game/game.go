@@ -3,6 +3,7 @@ package game
 import (
 	"github.com/google/uuid"
 	"log"
+	"mtggameengine/game/pl"
 	"mtggameengine/models"
 	socketio "mtggameengine/socket"
 	"strings"
@@ -42,19 +43,34 @@ type defaultGame struct {
 	PacksInfo string
 }
 
-type Players []Player
+type Players []pl.Player
 
-func (p *Players) Add(player Player) {
+func (p *Players) Add(player pl.Player) {
 	*p = append(*p, player)
 }
 
-func (p *Players) indexOf(player Player) int {
+func (p *Players) indexOf(player pl.Player) int {
 	for i, pl := range *p {
-		if player == pl {
+		if player.ID() == pl.ID() {
 			return i
 		}
 	}
 	return -1
+}
+
+func (p *Players) indexOfID(id string) int {
+	for i, pl := range *p {
+		if id == pl.ID() {
+			return i
+		}
+	}
+	return -1
+}
+
+func (p *Players) Remove(index int) {
+	arr := *p
+	arr[index] = arr[len(arr)-1]
+	*p = arr[:len(arr)-1]
 }
 
 func (g *defaultGame) SetHost(hostId string) {
@@ -67,12 +83,13 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 	defer g.lock.Unlock()
 
 	for _, player := range g.players {
-		// link conn to player
+		// link conn to pl
 		if player.ID() == conn.ID() {
-			log.Println(g.ID(), "player", conn.ID(), "re-joined the game")
-			player.Err("only one window active")
-			player.Attach(conn)
-			g.greet(player)
+			log.Println(g.ID(), "pl", conn.ID(), "re-joined the game")
+			humanPlayer := player.(*pl.Human)
+			humanPlayer.Err("only one window active")
+			humanPlayer.Attach(conn)
+			g.greet(humanPlayer)
 			g.Room.Join(conn)
 			g.meta()
 			return
@@ -91,10 +108,33 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 
 	g.Room.Join(conn)
 
+	//Handle exit
+	conn.OnEvent("exit", func(c socketio.Conn) {
+		// get write lock
+		g.lock.Lock()
+		defer g.lock.Unlock()
+		log.Println(c.ID(), "left the game", g.ID())
+		g.Room.Leave(c)
+		c.RemoveEvent("exit")
+
+		if g.gameStarted() {
+			return
+		}
+
+		c.RemoveEvent("start") //a bit out of the blue?
+		i := g.players.indexOfID(c.ID())
+		g.players.Remove(i)
+		for index, player := range g.players {
+			if human, ok := player.(*pl.Human); ok {
+				human.Set(PlayerBasicInfo{
+					Self: index,
+				})
+			}
+		}
+	})
 	//Pick Delegate?
 
-	//If It's the host give him extra events
-	player := newHuman(conn, conn.ID() == g.HostID)
+	player := pl.NewHuman(conn, conn.ID() == g.HostID)
 	g.players.Add(player)
 	g.greet(player)
 	// broadcast
@@ -114,11 +154,11 @@ func (g *defaultGame) gameFinished() bool {
 }
 
 type PlayerBasicInfo struct {
-	IsHost bool     `json:"isHost"`
-	Round  int      `json:"round"`
+	IsHost bool     `json:"isHost,omitempty"`
+	Round  int      `json:"round,omitempty"`
 	Self   int      `json:"self"`
-	Sets   []string `json:"sets"`
-	GameId string   `json:"gameId"`
+	Sets   []string `json:"sets,omitempty"`
+	GameId string   `json:"gameId,omitempty"`
 }
 
 type BasicInfos struct {
@@ -127,14 +167,15 @@ type BasicInfos struct {
 	Sets       []string `json:"sets"`
 }
 
-func (g *defaultGame) greet(player Player) {
-	player.Set(PlayerBasicInfo{
+func (g *defaultGame) greet(player *pl.Human) {
+	info := PlayerBasicInfo{
 		IsHost: player.IsHost(),
 		Round:  g.round,
 		Self:   g.players.indexOf(player),
 		Sets:   g.Sets,
 		GameId: g.ID(),
-	})
+	}
+	player.Set(info)
 
 	player.Emit("gameInfos", BasicInfos{
 		Type:       g.Type,
@@ -145,7 +186,7 @@ func (g *defaultGame) greet(player Player) {
 
 type PlayerSpecificInfo struct {
 	Name        string `json:"name"`
-	Time        string `json:"time"`
+	Time        int    `json:"time"`
 	Packs       int    `json:"packs"`
 	IsBot       bool   `json:"isBot"`
 	IsConnected bool   `json:"isConnected"`
@@ -162,11 +203,11 @@ func (g *defaultGame) meta() {
 	for _, p := range g.players {
 		ps := PlayerSpecificInfo{
 			Name:        p.Name(),
-			Time:        "0",
-			Packs:       0,
+			Time:        p.Time(),
+			Packs:       len(*p.Packs()),
 			IsBot:       p.IsBot(),
 			IsConnected: p.IsConnected(),
-			Hash:        "",
+			Hash:        p.Hash(),
 		}
 		playersState = append(playersState, ps)
 	}
@@ -179,7 +220,7 @@ func (g *defaultGame) meta() {
 
 func CreateGame(gameRequest models.CreateGameRequest, cubeList []string) Game {
 	return &defaultGame{
-		Room:       &defaultRoom{},
+		Room:       newRoom(gameRequest.IsPrivate),
 		id:         uuid.New().String(),
 		Type:       gameRequest.Type,
 		Title:      gameRequest.Title,
