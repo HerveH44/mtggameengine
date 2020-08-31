@@ -182,9 +182,9 @@ func (c *conn) serveError() {
 		case <-c.quitChan:
 			return
 		case msg := <-c.errorChan:
-			if handler := c.namespace(msg.namespace); handler != nil {
+			if handler := c.namespace(""); handler != nil {
 				if handler.onError != nil {
-					handler.onError(c.namespaces[msg.namespace], msg.error)
+					handler.onError(c.namespaces[""], msg.error)
 				}
 			}
 		}
@@ -223,19 +223,38 @@ func (c *conn) serveRead() {
 			c.decoder.DiscardLast()
 			continue
 		}
-		types := handler.getTypes(event)
-		args, err := c.decoder.DecodeArgs(types)
-		if err != nil {
-			c.onError("header.Namespace", err)
-			return
-		}
-		ret, err := handler.dispatch(conn, event, args)
-		if err != nil {
-			c.onError("header.Namespace", err)
-			return
-		}
-		if len(ret) > 0 {
-			c.write(ret)
+		// Connection event handling
+		if conn.HasEvent(event) {
+			types := conn.getTypes(event)
+			args, err := c.decoder.DecodeArgs(types)
+			if err != nil {
+				c.onError("header.Namespace", err)
+				return
+			}
+			ret, err := conn.Dispatch(event, args)
+			if err != nil {
+				c.onError("header.Namespace", err)
+				return
+			}
+			if len(ret) > 0 {
+				c.write(ret)
+			}
+		} else {
+			// Default handler
+			types := handler.getTypes(event)
+			args, err := c.decoder.DecodeArgs(types)
+			if err != nil {
+				c.onError("header.Namespace", err)
+				return
+			}
+			ret, err := handler.dispatch(conn, event, args)
+			if err != nil {
+				c.onError("header.Namespace", err)
+				return
+			}
+			if len(ret) > 0 {
+				c.write(ret)
+			}
 		}
 	}
 }

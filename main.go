@@ -67,7 +67,7 @@ func main() {
 	})
 	server.OnDisconnect(func(c socketio.Conn, reason string) {
 		fmt.Println("socket disconnected", reason)
-		c.Dispatch("exit", nil)
+		c.Dispatch("leave", nil)
 	})
 	go server.Serve()
 	defer server.Close()

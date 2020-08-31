@@ -50,9 +50,9 @@ func (c *Connections) broadcast(event string, v interface{}) {
 }
 
 type Message struct {
-	name string
-	Text string
-	time time.Time
+	Name string `json:"name"`
+	Text string `json:"text"`
+	Time int64  `json:"time"`
 }
 
 func (d *defaultRoom) Join(conn socketio.Conn) {
@@ -64,9 +64,9 @@ func (d *defaultRoom) Join(conn socketio.Conn) {
 	// Handle say
 	conn.OnEvent("say", func(c socketio.Conn, msg string) {
 		message := Message{
-			name: conn.Name(),
+			Name: conn.Name(),
 			Text: msg,
-			time: time.Now(),
+			Time: time.Now().Unix(),
 		}
 
 		d.lock.Lock()
@@ -79,12 +79,17 @@ func (d *defaultRoom) Join(conn socketio.Conn) {
 	})
 
 	//Handle Name
-	conn.OnEvent("name", func(c socketio.Conn, name string) {
-		c.SetName(name[:15])
-	})
+	conn.OnEvent("name", d.setName)
 
 	// Send all messages
 	conn.Emit("chat", d.messages)
+}
+
+func (d *defaultRoom) setName(c socketio.Conn, name string) {
+	if len(name) > 14 {
+		c.SetName(name[:15])
+	}
+	c.SetName(name)
 }
 
 func (d *defaultRoom) Leave(conn socketio.Conn) {

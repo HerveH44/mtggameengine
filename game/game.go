@@ -89,9 +89,7 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 			humanPlayer := player.(*pl.Human)
 			humanPlayer.Err("only one window active")
 			humanPlayer.Attach(conn)
-			g.greet(humanPlayer)
-			g.Room.Join(conn)
-			g.meta()
+			g.doJoin(humanPlayer)
 			return
 		}
 	}
@@ -105,39 +103,43 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 		conn.Err("game is already full")
 		return
 	}
-
-	g.Room.Join(conn)
-
-	//Handle exit
-	conn.OnEvent("exit", func(c socketio.Conn) {
-		// get write lock
-		g.lock.Lock()
-		defer g.lock.Unlock()
-		log.Println(c.ID(), "left the game", g.ID())
-		g.Room.Leave(c)
-		c.RemoveEvent("exit")
-
-		if g.gameStarted() {
-			return
-		}
-
-		c.RemoveEvent("start") //a bit out of the blue?
-		i := g.players.indexOfID(c.ID())
-		g.players.Remove(i)
-		for index, player := range g.players {
-			if human, ok := player.(*pl.Human); ok {
-				human.Set(PlayerBasicInfo{
-					Self: index,
-				})
-			}
-		}
-	})
-	//Pick Delegate?
+	conn.OnEvent("leave", g.onConnectionExit)
 
 	player := pl.NewHuman(conn, conn.ID() == g.HostID)
 	g.players.Add(player)
-	g.greet(player)
-	// broadcast
+	g.doJoin(player)
+}
+
+func (g *defaultGame) onConnectionExit(c socketio.Conn) {
+	// get write lock
+	g.lock.Lock()
+	defer g.lock.Unlock()
+
+	log.Println(c.ID(), "left the game", g.ID())
+	g.Room.Leave(c)
+	c.RemoveEvent("leave")
+
+	if g.gameStarted() {
+		return
+	}
+
+	c.RemoveEvent("start") //a bit out of the blue?
+	i := g.players.indexOfID(c.ID())
+	g.players.Remove(i)
+	for index, player := range g.players {
+		if human, ok := player.(*pl.Human); ok {
+			human.Set(PlayerBasicInfo{
+				Self: index,
+			})
+		}
+	}
+}
+
+func (g *defaultGame) ChangeName(c socketio.Conn, name string) {
+	if len(name) > 14 {
+		c.SetName(name[:15])
+	}
+	c.SetName(name)
 	g.meta()
 }
 
@@ -216,6 +218,15 @@ func (g *defaultGame) meta() {
 		Players:   &playersState,
 		GameSeats: g.Seats,
 	})
+}
+
+func (g *defaultGame) doJoin(player *pl.Human) {
+	g.greet(player)
+	g.Room.Join(player)
+	player.OnEvent("name", func(c socketio.Conn, name string) {
+		g.meta()
+	})
+	g.meta()
 }
 
 func CreateGame(gameRequest models.CreateGameRequest, cubeList []string) Game {
