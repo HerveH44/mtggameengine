@@ -66,7 +66,7 @@ func main() {
 		fmt.Println("meet error:", e)
 	})
 	server.OnDisconnect(func(c socketio.Conn, reason string) {
-		fmt.Println("closed", reason)
+		fmt.Println("socket disconnected", reason)
 		c.Dispatch("exit", nil)
 	})
 	go server.Serve()
