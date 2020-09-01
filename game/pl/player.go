@@ -2,7 +2,6 @@ package pl
 
 import (
 	"mtggameengine/models"
-	socketio "mtggameengine/socket"
 )
 
 type Player interface {
@@ -11,15 +10,23 @@ type Player interface {
 	IsConnected() bool
 	IsHost() bool
 	IsBot() bool
-	Packs() *[]models.Pack
+	GetPacks() []*models.Pack
 	Time() int
 	Hash() string
 }
 
 //Base type for bot and Human players
 type player struct {
-	Name  string
-	Packs *[]models.Pack
+	name  string
+	Packs []*models.Pack
+}
+
+func (p *player) GetPacks() []*models.Pack {
+	return p.Packs
+}
+
+func (p *player) Name() string {
+	return p.name
 }
 
 type Players []Player
@@ -50,18 +57,4 @@ func (p *Players) Remove(index int) {
 	arr := *p
 	arr[index] = arr[len(arr)-1]
 	*p = arr[:len(arr)-1]
-}
-
-func NewHuman(conn socketio.Conn, isHost bool) *Human {
-
-	packs := make([]models.Pack, 0)
-	return &Human{
-		Conn: conn,
-		player: player{
-			Name:  conn.Name(),
-			Packs: &packs,
-		},
-		isConnected: true,
-		isHost:      isHost,
-	}
 }

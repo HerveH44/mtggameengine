@@ -165,7 +165,7 @@ func (g *defaultGame) meta() {
 		ps := PlayerSpecificInfo{
 			Name:        p.Name(),
 			Time:        p.Time(),
-			Packs:       len(*p.Packs()),
+			Packs:       len(p.GetPacks()),
 			IsBot:       p.IsBot(),
 			IsConnected: p.IsConnected(),
 			Hash:        p.Hash(),
@@ -194,8 +194,18 @@ func (g *defaultGame) setHostPermissions(player *pl.Human) {
 	player.OnEvent("swap", g.swap)
 }
 
-func (g *defaultGame) start(c socketio.Conn, msg StartRequest) {
-	log.Println("start: ", msg)
+func (g *defaultGame) start(c socketio.Conn, startRequest StartRequest) {
+	// get write lock
+	g.lock.Lock()
+	defer g.lock.Unlock()
+
+	if startRequest.AddBots {
+		for i := len(g.players); i < g.Seats; i++ {
+			g.players.Add(pl.NewBot())
+		}
+	}
+
+	g.meta()
 }
 
 func (g *defaultGame) kick(c socketio.Conn, index int) {

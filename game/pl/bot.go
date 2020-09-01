@@ -1,8 +1,6 @@
 package pl
 
-import (
-	"mtggameengine/models"
-)
+import "mtggameengine/models"
 
 type Bot struct {
 	player
@@ -10,10 +8,6 @@ type Bot struct {
 
 func (b *Bot) ID() string {
 	return ""
-}
-
-func (b *Bot) Name() string {
-	panic("bot")
 }
 
 func (b Bot) IsConnected() bool {
@@ -28,14 +22,18 @@ func (b Bot) IsBot() bool {
 	return true
 }
 
-func (b Bot) Packs() *[]models.Pack {
-	panic("implement me")
-}
-
 func (b Bot) Time() int {
-	panic("implement me")
+	return 0
 }
 
 func (b Bot) Hash() string {
-	panic("implement me")
+	return ""
+}
+
+func NewBot() Player {
+	packs := make([]*models.Pack, 0)
+	return &Bot{player{
+		name:  "bot",
+		Packs: packs,
+	}}
 }

@@ -44,10 +44,7 @@ func TestEncoder(t *testing.T) {
 			w := fakeWriter{}
 			encoder := NewEncoder(&w)
 			v := test.Var
-			if test.Header.Type == Event {
-				v = append([]interface{}{test.Event}, test.Var...)
-			}
-			err := encoder.Encode(test.Header, v)
+			err := encoder.Encode(v)
 			must.Nil(err)
 			must.Equal(len(test.Datas), len(w.types))
 			must.Equal(len(test.Datas), len(w.bufs))

@@ -78,7 +78,7 @@ func (d *defaultRoom) Join(conn socketio.Conn) {
 		}
 	})
 
-	//Handle Name
+	//Handle name
 	conn.OnEvent("name", d.setName)
 
 	// Send all messages

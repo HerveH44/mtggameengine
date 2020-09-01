@@ -7,17 +7,13 @@ import (
 
 type Human struct {
 	socketio.Conn
-	player
+	*player
 	isConnected bool
 	isHost      bool
 }
 
 func (h *Human) Name() string {
 	return h.Conn.Name()
-}
-
-func (h *Human) Packs() *[]models.Pack {
-	return h.player.Packs
 }
 
 func (h *Human) Time() int {
@@ -48,4 +44,17 @@ func (h *Human) IsConnected() bool {
 func (h *Human) Kick() {
 	// Should turn to a bot
 	h.isConnected = false
+}
+
+func NewHuman(conn socketio.Conn, isHost bool) *Human {
+	packs := make([]*models.Pack, 0)
+	return &Human{
+		Conn: conn,
+		player: &player{
+			name:  conn.Name(),
+			Packs: packs,
+		},
+		isConnected: true,
+		isHost:      isHost,
+	}
 }
