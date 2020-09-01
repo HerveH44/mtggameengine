@@ -16,6 +16,23 @@ type Game interface {
 	Join(conn socketio.Conn)
 }
 
+func CreateGame(gameRequest models.CreateGameRequest, cubeList []string) Game {
+	return &defaultGame{
+		Room:       newRoom(gameRequest.IsPrivate),
+		id:         uuid.New().String(),
+		Type:       gameRequest.Type,
+		Title:      gameRequest.Title,
+		Seats:      gameRequest.Seats,
+		IsPrivate:  gameRequest.IsPrivate,
+		Sets:       gameRequest.Sets,
+		ModernOnly: gameRequest.ModernOnly,
+		TotalChaos: gameRequest.TotalChaos,
+		CubeList:   cubeList,
+		PacksInfo:  strings.Join(gameRequest.Sets, " / "),
+		players:    make(pl.Players, 0),
+	}
+}
+
 type defaultGame struct {
 	Room
 	id        string
@@ -38,39 +55,13 @@ type defaultGame struct {
 	CubeList []string
 
 	lock      sync.RWMutex // access lock
-	players   Players
+	players   pl.Players
 	round     int
 	PacksInfo string
 }
 
-type Players []pl.Player
-
-func (p *Players) Add(player pl.Player) {
-	*p = append(*p, player)
-}
-
-func (p *Players) indexOf(player pl.Player) int {
-	for i, pl := range *p {
-		if player.ID() == pl.ID() {
-			return i
-		}
-	}
-	return -1
-}
-
-func (p *Players) indexOfID(id string) int {
-	for i, pl := range *p {
-		if id == pl.ID() {
-			return i
-		}
-	}
-	return -1
-}
-
-func (p *Players) Remove(index int) {
-	arr := *p
-	arr[index] = arr[len(arr)-1]
-	*p = arr[:len(arr)-1]
+func (g *defaultGame) ID() string {
+	return g.id
 }
 
 func (g *defaultGame) SetHost(hostId string) {
@@ -104,17 +95,17 @@ func (g *defaultGame) Join(conn socketio.Conn) {
 		conn.Err("game is already full")
 		return
 	}
-	conn.OnEvent("leave", g.onConnectionExit)
+	conn.OnEvent("leave", g.onSocketLeave)
 
 	player := pl.NewHuman(conn, conn.ID() == g.HostID)
 	g.players.Add(player)
 	g.doJoin(player)
 	if player.IsHost() {
-		g.SetHostPermissions(player)
+		g.setHostPermissions(player)
 	}
 }
 
-func (g *defaultGame) onConnectionExit(c socketio.Conn) {
+func (g *defaultGame) onSocketLeave(c socketio.Conn) {
 	// get write lock
 	g.lock.Lock()
 	defer g.lock.Unlock()
@@ -128,7 +119,7 @@ func (g *defaultGame) onConnectionExit(c socketio.Conn) {
 	}
 
 	c.RemoveEvent("start") //a bit out of the blue?
-	i := g.players.indexOfID(c.ID())
+	i := g.players.IndexOfID(c.ID())
 	g.players.Remove(i)
 	g.broadcastPosition()
 }
@@ -143,10 +134,6 @@ func (g *defaultGame) broadcastPosition() {
 	}
 }
 
-func (g *defaultGame) ID() string {
-	return g.id
-}
-
 func (g *defaultGame) gameStarted() bool {
 	return g.round != 0
 }
@@ -155,25 +142,11 @@ func (g *defaultGame) gameFinished() bool {
 	return g.round == -1
 }
 
-type PlayerBasicInfo struct {
-	IsHost bool     `json:"isHost,omitempty"`
-	Round  int      `json:"round,omitempty"`
-	Self   int      `json:"self"`
-	Sets   []string `json:"sets,omitempty"`
-	GameId string   `json:"gameId,omitempty"`
-}
-
-type BasicInfos struct {
-	Type       string   `json:"type"`
-	PacksInfos string   `json:"packsInfo"`
-	Sets       []string `json:"sets"`
-}
-
 func (g *defaultGame) greet(player *pl.Human) {
 	info := PlayerBasicInfo{
 		IsHost: player.IsHost(),
 		Round:  g.round,
-		Self:   g.players.indexOf(player),
+		Self:   g.players.IndexOf(player),
 		Sets:   g.Sets,
 		GameId: g.ID(),
 	}
@@ -184,20 +157,6 @@ func (g *defaultGame) greet(player *pl.Human) {
 		PacksInfos: g.PacksInfo,
 		Sets:       g.Sets,
 	})
-}
-
-type PlayerSpecificInfo struct {
-	Name        string `json:"name"`
-	Time        int    `json:"time"`
-	Packs       int    `json:"packs"`
-	IsBot       bool   `json:"isBot"`
-	IsConnected bool   `json:"isConnected"`
-	Hash        string `json:"hash"`
-}
-
-type StateInfo struct {
-	Players   *[]PlayerSpecificInfo `json:"players"`
-	GameSeats int                   `json:"gameSeats"`
 }
 
 func (g *defaultGame) meta() {
@@ -229,70 +188,52 @@ func (g *defaultGame) doJoin(player *pl.Human) {
 	g.meta()
 }
 
-type StartRequest struct {
-	AddBots        bool   `json:"addBots"`
-	UseTimer       bool   `json:"useTimer"`
-	TimerLength    string `json:"timerLength"`
-	ShufflePlayers bool   `json:"shufflePlayers"`
+func (g *defaultGame) setHostPermissions(player *pl.Human) {
+	player.OnEvent("start", g.start)
+	player.OnEvent("kick", g.kick)
+	player.OnEvent("swap", g.swap)
 }
 
-func (g *defaultGame) SetHostPermissions(player *pl.Human) {
-	player.OnEvent("start", func(c socketio.Conn, msg StartRequest) {
-		log.Println("start: ", msg)
-	})
-	player.OnEvent("kick", func(c socketio.Conn, index int) {
-		if index < 0 || index >= len(g.players) {
-			c.Err("player index is out of players range")
-		}
-
-		player := g.players[index]
-
-		if player.IsBot() {
-			return
-		}
-
-		human := player.(*pl.Human)
-		log.Println(player.Name(), "is being kicked out from the game")
-		if g.gameStarted() {
-			human.Kick()
-		} else {
-			g.onConnectionExit(human)
-		}
-
-		human.Err("you were kicked")
-		g.meta()
-	})
-	player.OnEvent("swap", func(c socketio.Conn, msg [2]int) {
-		// get write lock
-		g.lock.Lock()
-		defer g.lock.Unlock()
-
-		l := len(g.players)
-		i, j := msg[0], msg[1]
-
-		if j < 0 || j >= l {
-			return
-		}
-
-		g.players[i], g.players[j] = g.players[j], g.players[i]
-		g.broadcastPosition()
-		g.meta()
-	})
+func (g *defaultGame) start(c socketio.Conn, msg StartRequest) {
+	log.Println("start: ", msg)
 }
 
-func CreateGame(gameRequest models.CreateGameRequest, cubeList []string) Game {
-	return &defaultGame{
-		Room:       newRoom(gameRequest.IsPrivate),
-		id:         uuid.New().String(),
-		Type:       gameRequest.Type,
-		Title:      gameRequest.Title,
-		Seats:      gameRequest.Seats,
-		IsPrivate:  gameRequest.IsPrivate,
-		Sets:       gameRequest.Sets,
-		ModernOnly: gameRequest.ModernOnly,
-		TotalChaos: gameRequest.TotalChaos,
-		CubeList:   cubeList,
-		PacksInfo:  strings.Join(gameRequest.Sets, " / "),
-		players:    make(Players, 0),
+func (g *defaultGame) kick(c socketio.Conn, index int) {
+	if index < 0 || index >= len(g.players) {
+		c.Err("player index is out of players range")
 	}
+
+	player := g.players[index]
+
+	if player.IsBot() {
+		return
+	}
+
+	human := player.(*pl.Human)
+	log.Println(player.Name(), "is being kicked out from the game")
+	if g.gameStarted() {
+		human.Kick()
+	} else {
+		g.onSocketLeave(human)
+	}
+
+	human.Err("you were kicked")
+	g.meta()
+}
+
+func (g *defaultGame) swap(_ socketio.Conn, msg [2]int) {
+	// get write lock
+	g.lock.Lock()
+	defer g.lock.Unlock()
+
+	l := len(g.players)
+	i, j := msg[0], msg[1]
+
+	if j < 0 || j >= l {
+		return
+	}
+
+	g.players[i], g.players[j] = g.players[j], g.players[i]
+	g.broadcastPosition()
+	g.meta()
 }

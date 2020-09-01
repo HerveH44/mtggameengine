@@ -22,6 +22,36 @@ type player struct {
 	Packs *[]models.Pack
 }
 
+type Players []Player
+
+func (p *Players) Add(player Player) {
+	*p = append(*p, player)
+}
+
+func (p *Players) IndexOf(player Player) int {
+	for i, pl := range *p {
+		if player.ID() == pl.ID() {
+			return i
+		}
+	}
+	return -1
+}
+
+func (p *Players) IndexOfID(id string) int {
+	for i, pl := range *p {
+		if id == pl.ID() {
+			return i
+		}
+	}
+	return -1
+}
+
+func (p *Players) Remove(index int) {
+	arr := *p
+	arr[index] = arr[len(arr)-1]
+	*p = arr[:len(arr)-1]
+}
+
 func NewHuman(conn socketio.Conn, isHost bool) *Human {
 
 	packs := make([]models.Pack, 0)
