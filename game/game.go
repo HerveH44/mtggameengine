@@ -3,11 +3,13 @@ package game
 import (
 	"github.com/google/uuid"
 	"log"
+	"math/rand"
 	"mtggameengine/game/pl"
 	"mtggameengine/models"
 	socketio "mtggameengine/socket"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Game interface {
@@ -195,17 +197,36 @@ func (g *defaultGame) setHostPermissions(player *pl.Human) {
 }
 
 func (g *defaultGame) start(c socketio.Conn, startRequest StartRequest) {
+	if startRequest.AddBots {
+		g.addBots()
+	}
+
+	if startRequest.ShufflePlayers {
+		g.shufflePlayers()
+	}
+
+	g.broadcastPosition()
+	g.meta()
+	g.round++
+}
+
+func (g *defaultGame) addBots() {
 	// get write lock
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	if startRequest.AddBots {
-		for i := len(g.players); i < g.Seats; i++ {
-			g.players.Add(pl.NewBot())
-		}
+	for i := len(g.players); i < g.Seats; i++ {
+		g.players.Add(pl.NewBot())
 	}
+}
 
-	g.meta()
+func (g *defaultGame) shufflePlayers() {
+	// get write lock
+	g.lock.Lock()
+	defer g.lock.Unlock()
+
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(g.players), func(i, j int) { g.players[i], g.players[j] = g.players[j], g.players[i] })
 }
 
 func (g *defaultGame) kick(c socketio.Conn, index int) {
