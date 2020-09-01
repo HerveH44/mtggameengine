@@ -143,14 +143,6 @@ func (g *defaultGame) broadcastPosition() {
 	}
 }
 
-func (g *defaultGame) ChangeName(c socketio.Conn, name string) {
-	if len(name) > 14 {
-		c.SetName(name[:15])
-	}
-	c.SetName(name)
-	g.meta()
-}
-
 func (g *defaultGame) ID() string {
 	return g.id
 }
