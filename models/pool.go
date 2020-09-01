@@ -23,3 +23,5 @@ type Card struct {
 }
 
 type Pack []Card
+
+type Pool []Pack

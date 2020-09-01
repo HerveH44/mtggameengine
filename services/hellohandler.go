@@ -3,12 +3,13 @@ package services
 import (
 	"fmt"
 	"mtggameengine/models"
+	"mtggameengine/services/pool"
 	socketio "mtggameengine/socket"
 )
 
 type HelloHandler func(conn socketio.Conn)
 
-func NewHelloHandler(poolService PoolService) HelloHandler {
+func NewHelloHandler(poolService pool.PoolService) HelloHandler {
 	return func(conn socketio.Conn) {
 		version, err := poolService.GetVersion()
 		if err != nil {

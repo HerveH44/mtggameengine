@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"mtggameengine/game/pl"
 	"mtggameengine/models"
+	"mtggameengine/services/pool"
 	socketio "mtggameengine/socket"
 	"strings"
 	"sync"
@@ -18,20 +19,21 @@ type Game interface {
 	Join(conn socketio.Conn)
 }
 
-func CreateGame(gameRequest models.CreateGameRequest, cubeList []string) Game {
+func CreateGame(gameRequest models.CreateGameRequest, cubeList []string, service pool.PoolService) Game {
 	return &defaultGame{
-		Room:       newRoom(gameRequest.IsPrivate),
-		id:         uuid.New().String(),
-		Type:       gameRequest.Type,
-		Title:      gameRequest.Title,
-		Seats:      gameRequest.Seats,
-		IsPrivate:  gameRequest.IsPrivate,
-		Sets:       gameRequest.Sets,
-		ModernOnly: gameRequest.ModernOnly,
-		TotalChaos: gameRequest.TotalChaos,
-		CubeList:   cubeList,
-		PacksInfo:  strings.Join(gameRequest.Sets, " / "),
-		players:    make(pl.Players, 0),
+		Room:        newRoom(gameRequest.IsPrivate),
+		id:          uuid.New().String(),
+		Type:        gameRequest.Type,
+		Title:       gameRequest.Title,
+		Seats:       gameRequest.Seats,
+		IsPrivate:   gameRequest.IsPrivate,
+		Sets:        gameRequest.Sets,
+		ModernOnly:  gameRequest.ModernOnly,
+		TotalChaos:  gameRequest.TotalChaos,
+		CubeList:    cubeList,
+		PacksInfo:   strings.Join(gameRequest.Sets, " / "),
+		players:     make(pl.Players, 0),
+		poolService: service,
 	}
 }
 
@@ -60,6 +62,9 @@ type defaultGame struct {
 	players   pl.Players
 	round     int
 	PacksInfo string
+
+	poolService pool.PoolService
+	pool        models.Pool
 }
 
 func (g *defaultGame) ID() string {
@@ -205,9 +210,15 @@ func (g *defaultGame) start(c socketio.Conn, startRequest StartRequest) {
 		g.shufflePlayers()
 	}
 
+	g.createPool()
+
+	//Handle sealed or draft or other?
+	if g.Type == "draft" {
+		g.handleDraft()
+	}
+
 	g.broadcastPosition()
 	g.meta()
-	g.round++
 }
 
 func (g *defaultGame) addBots() {
@@ -266,5 +277,36 @@ func (g *defaultGame) swap(_ socketio.Conn, msg [2]int) {
 
 	g.players[i], g.players[j] = g.players[j], g.players[i]
 	g.broadcastPosition()
+	g.meta()
+}
+
+func (g *defaultGame) createPool() {
+	switch g.Type {
+	case "draft":
+		{
+			regularPool, err := g.poolService.MakeRegularPool(models.RegularRequest{
+				Players: len(g.players),
+				Sets:    g.Sets,
+			})
+			if err != nil {
+				log.Println("Could not fetch regularPool", err)
+			}
+			g.pool = regularPool
+		}
+	}
+}
+
+func (g *defaultGame) handleDraft() {
+	g.round++
+	for _, p := range g.players {
+		if !p.IsBot() {
+			human := p.(*pl.Human)
+			human.Emit("pack", g.pool[0])
+			human.Emit("pickNumber", 1)
+			human.Set(PlayerBasicInfo{
+				Round: g.round,
+			})
+		}
+	}
 	g.meta()
 }

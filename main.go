@@ -6,6 +6,7 @@ import (
 	config2 "mtggameengine/config"
 	"mtggameengine/models"
 	"mtggameengine/services"
+	"mtggameengine/services/pool"
 	socketio "mtggameengine/socket"
 	"net/http"
 )
@@ -21,7 +22,7 @@ func main() {
 		log.Fatal("load config error:", err)
 	}
 
-	poolService := services.NewPoolService(config.PoolServiceBaseURL)
+	poolService := pool.NewPoolService(config.PoolServiceBaseURL)
 	helloHandler := services.NewHelloHandler(poolService)
 	gameService := services.NewDefaultGameService(poolService)
 
@@ -41,11 +42,6 @@ func main() {
 		})
 		helloHandler(s)
 		server.BroadcastToRoom("/", "/", "set", models.LobbyStats{Players: server.RoomLen("/", "/")})
-		/**
-		broadcast to all after join :
-		["set",{"numPlayers":4,"numGames":5,"numActiveGames":3}]
-		["set",{"roomInfo":[]}]
-		*/
 		return nil
 	})
 	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGameRequest) {

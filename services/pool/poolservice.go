@@ -1,4 +1,4 @@
-package services
+package pool
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ type PoolService interface {
 	// specific pools
 	//MakeChaosPool(request ChaosRequest) []CardPool
 	//MakeCubePool(request CubeRequest) []CardPool
-	//MakeRegularPool(request RegularRequest) []CardPool
+	MakeRegularPool(request models.RegularRequest) (models.Pool, error)
 }
 
 func NewPoolService(poolURL string) PoolService {
@@ -132,6 +132,31 @@ func (d *defaultPoolService) CheckCubeList(list []string) ([]string, error) {
 	err = json.Unmarshal(responseData, &errorResponse)
 
 	return errorResponse.Error, err
+}
+
+func (d *defaultPoolService) MakeRegularPool(request models.RegularRequest) (pool models.Pool, err error) {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := http.Post(fmt.Sprintf("%sregular", d.poolURL), "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected error while fetching regular pool")
+	}
+
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(responseData, &pool)
+
+	return
 }
 
 func (d *defaultPoolService) MakePool() (pool []models.Pack, err error) {

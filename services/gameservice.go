@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mtggameengine/game"
 	"mtggameengine/models"
+	"mtggameengine/services/pool"
 	socketio "mtggameengine/socket"
 	"strings"
 )
@@ -14,7 +15,7 @@ type GameService interface {
 }
 
 type defaultGameService struct {
-	poolService PoolService
+	poolService pool.PoolService
 	games       map[string]game.Game
 }
 
@@ -29,7 +30,7 @@ func (s *defaultGameService) Join(gameId string, conn socketio.Conn) {
 	s.games[gameId].Join(conn)
 }
 
-func NewDefaultGameService(service PoolService) GameService {
+func NewDefaultGameService(service pool.PoolService) GameService {
 	return &defaultGameService{
 		poolService: service,
 		games:       make(map[string]game.Game),
@@ -62,7 +63,7 @@ func (s *defaultGameService) CreateGame(gameRequest models.CreateGameRequest, co
 		}
 	}
 
-	newGame := game.CreateGame(gameRequest, cubeList)
+	newGame := game.CreateGame(gameRequest, cubeList, s.poolService)
 	newGame.SetHost(conn.ID())
 	s.addGame(newGame)
 	return newGame, nil
