@@ -384,13 +384,16 @@ func (g *defaultGame) startRound() {
 
 	go func() {
 		count := 0
+		defer g.startRound()
 		for range g.emptyPacksChan {
 			count++
 			// emptied all the packs of the round
 			if count == cap(g.emptyPacksChan) {
+				log.Println("Finished round")
 				for _, player := range g.players {
 					player.StopPicking()
 				}
+				close(g.emptyPacksChan)
 			}
 		}
 	}()

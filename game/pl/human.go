@@ -74,8 +74,6 @@ func (h *Human) onPick(conn socketio.Conn, index int) {
 }
 
 func (h *Human) StartPicking(emptyPacks chan<- models.Pack) {
-	h.OnEvent("pick", h.onPick)
-
 	go func() {
 		for pack := range h.Packs {
 			if len(pack) <= 0 {
@@ -89,6 +87,11 @@ func (h *Human) StartPicking(emptyPacks chan<- models.Pack) {
 	}()
 }
 
+func (h *Human) StopPicking() {
+	close(h.Packs)
+	h.Packs = make(chan models.Pack, 100)
+}
+
 func (h *Human) sendPack() {
 	h.Emit("pack", h.pack)
 	h.PickNumber++
@@ -96,7 +99,7 @@ func (h *Human) sendPack() {
 }
 
 func NewHuman(conn socketio.Conn, isHost bool) *Human {
-	return &Human{
+	h := &Human{
 		Conn: conn,
 		player: &player{
 			name:  conn.Name(),
@@ -105,4 +108,6 @@ func NewHuman(conn socketio.Conn, isHost bool) *Human {
 		isConnected: true,
 		isHost:      isHost,
 	}
+	h.OnEvent("pick", h.onPick)
+	return h
 }

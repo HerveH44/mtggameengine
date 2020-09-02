@@ -44,6 +44,11 @@ func (b *Bot) StartPicking(emptyPacks chan<- models.Pack) {
 
 }
 
+func (b *Bot) StopPicking() {
+	close(b.Packs)
+	b.Packs = make(chan models.Pack, 1)
+}
+
 func NewBot() Player {
 	return &Bot{player{
 		name:  "bot",

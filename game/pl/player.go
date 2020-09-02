@@ -42,11 +42,6 @@ func (p *player) AddPack(pack models.Pack) {
 	p.Packs <- pack
 }
 
-func (p *player) StopPicking() {
-	close(p.Packs)
-	p.Packs = make(chan models.Pack)
-}
-
 type Players []Player
 
 func (p *Players) Add(player Player) {
