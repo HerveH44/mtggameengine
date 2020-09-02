@@ -21,8 +21,8 @@ type RegularRequest struct {
 }
 
 type ChaosRequest struct {
-	Players    uint `json:"players"`
-	Packs      uint `json:"packs"`
+	Players    int  `json:"players"`
+	Packs      int  `json:"packs"`
 	Modern     bool `json:"modern"`
 	TotalChaos bool `json:"totalChaos"`
 }

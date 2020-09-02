@@ -15,15 +15,11 @@ type PoolService interface {
 	GetVersion() (models.VersionResponse, error)
 	GetAvailableSets() (*models.AvailableSetsMap, error)
 	GetLatestSet() (models.LatestSetResponse, error)
-
 	CheckCubeList(list []string) ([]string, error)
 
-	// Keep the pool service to determine what we want ?
-	MakePool() ([]models.Pack, error)
-
 	// specific pools
-	//MakeChaosPool(request ChaosRequest) []CardPool
-	//MakeCubePool(request CubeRequest) []CardPool
+	MakeChaosPool(request models.ChaosRequest) (models.Pool, error)
+	//MakeCubePool(request CubeRequest) (models.Pool, error)
 	MakeRegularPool(request models.RegularRequest) (models.Pool, error)
 }
 
@@ -158,7 +154,30 @@ func (d *defaultPoolService) MakeRegularPool(request models.RegularRequest) (poo
 
 	return
 }
+func (d *defaultPoolService) MakeChaosPool(request models.ChaosRequest) (pool models.Pool, err error) {
+	return makePool(fmt.Sprintf("%schaos", d.poolURL), request)
+}
 
-func (d *defaultPoolService) MakePool() (pool []models.Pack, err error) {
-	panic("implement me")
+func makePool(url string, request interface{}) (pool models.Pool, err error) {
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected error while fetching regular pool")
+	}
+
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(responseData, &pool)
+	return
 }

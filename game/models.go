@@ -23,11 +23,11 @@ type StartRequest struct {
 
 type PlayerBasicInfo struct {
 	IsHost   bool     `json:"isHost,omitempty"`
-	Round    int      `json:"round,omitempty"`
-	Self     int      `json:"self"`
+	Round    *int     `json:"round,omitempty"`
+	Self     *int     `json:"self,omitempty"`
 	Sets     []string `json:"sets,omitempty"`
 	GameId   string   `json:"gameId,omitempty"`
-	PackSize int      `json:"packSize,omitempty"`
+	PackSize *int     `json:"packSize,omitempty"`
 }
 
 type BasicInfos struct {

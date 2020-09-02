@@ -36,6 +36,7 @@ func CreateGame(gameRequest models.CreateGameRequest, cubeList []string, service
 		poolService: service,
 		rounds:      calcRounds(gameRequest),
 		delta:       -1,
+		chaosPacks:  gameRequest.ChaosPackNumber,
 	}
 }
 
@@ -99,6 +100,7 @@ type defaultGame struct {
 	packCount      int
 	delta          int //to check the order of pack passing
 	emptyPacksChan chan models.Pack
+	chaosPacks     int
 }
 
 func (g *defaultGame) ID() string {
@@ -169,7 +171,7 @@ func (g *defaultGame) broadcastPosition() {
 	for index, player := range g.players {
 		if human, ok := player.(*pl.Human); ok {
 			human.Set(PlayerBasicInfo{
-				Self: index,
+				Self: &index,
 			})
 		}
 	}
@@ -186,7 +188,7 @@ func (g *defaultGame) gameFinished() bool {
 func (g *defaultGame) greet(player *pl.Human) {
 	info := PlayerBasicInfo{
 		IsHost: player.IsHost(),
-		Round:  g.round,
+		Round:  &g.round,
 		Self:   g.players.IndexOf(player),
 		Sets:   g.Sets,
 		GameId: g.ID(),
@@ -236,13 +238,15 @@ func (g *defaultGame) setHostPermissions(player *pl.Human) {
 }
 
 func (g *defaultGame) start(_ socketio.Conn, startRequest StartRequest) {
-	g.createPool()
-
 	//Handle sealed or draft or other?
 	switch g.Type {
 	case "draft":
+		fallthrough
+	case "chaos draft":
 		g.handleDraft(startRequest)
 	case "sealed":
+		fallthrough
+	case "chaos sealed":
 		g.handleSealed()
 	}
 
@@ -322,6 +326,19 @@ func (g *defaultGame) createPool() {
 			log.Println("Could not fetch regularPool", err)
 		}
 		g.pool = regularPool
+	case "chaos sealed":
+		fallthrough
+	case "chaos draft":
+		chaosPool, err := g.poolService.MakeChaosPool(models.ChaosRequest{
+			Players:    len(g.players),
+			Packs:      g.chaosPacks,
+			Modern:     g.ModernOnly,
+			TotalChaos: g.TotalChaos,
+		})
+		if err != nil {
+			log.Println("Could not fetch regularPool", err)
+		}
+		g.pool = chaosPool
 	}
 }
 
@@ -337,6 +354,7 @@ func (g *defaultGame) handleDraft(startRequest StartRequest) {
 		g.shufflePlayers()
 	}
 
+	g.createPool()
 	for _, p := range g.players {
 		if !p.IsBot() {
 			human := p.(*pl.Human)
@@ -369,7 +387,7 @@ func (g *defaultGame) startRound() {
 
 	// Give packs to every player
 	for i, player := range g.players {
-		pack := g.pool.Remove(i * (len(g.Sets) - g.round))
+		pack := g.getPack(i)
 		player.AddPack(pack)
 		player.OnPass(i, func(index int, pack models.Pack) {
 			if len(pack) == 0 {
@@ -386,9 +404,10 @@ func (g *defaultGame) startRound() {
 		if !player.IsBot() {
 			human := player.(*pl.Human)
 			human.PickNumber = 0
+			packLength := len(pack)
 			human.Set(PlayerBasicInfo{
-				PackSize: len(pack),
-				Round:    g.round,
+				PackSize: &packLength,
+				Round:    &g.round,
 			})
 		}
 	}
@@ -397,6 +416,15 @@ func (g *defaultGame) startRound() {
 		player.StartPicking()
 	}
 	g.meta()
+}
+
+func (g *defaultGame) getPack(index int) models.Pack {
+	switch g.Type {
+	case "draft":
+		return g.pool.Remove(index * (len(g.Sets) - g.round))
+	default:
+		return g.pool.Remove(0)
+	}
 }
 
 func (g *defaultGame) decreasePackCount() {
@@ -425,6 +453,7 @@ func (g *defaultGame) endGame() {
 }
 
 func (g *defaultGame) handleSealed() {
+	g.createPool()
 	g.endGame()
 	for i, p := range g.players {
 		human, ok := p.(*pl.Human)
@@ -433,9 +462,18 @@ func (g *defaultGame) handleSealed() {
 			log.Println(g.players)
 			continue
 		}
-		human.AddPool(g.pool[(i * len(g.Sets)) : (i*len(g.Sets))+len(g.Sets)])
+		g.addPool(human, i)
 		human.Set(PlayerBasicInfo{
-			Round: g.round,
+			Round: &g.round,
 		})
+	}
+}
+
+func (g *defaultGame) addPool(human *pl.Human, index int) {
+	switch g.Type {
+	case "sealed":
+		human.AddPool(g.pool[(index * len(g.Sets)) : (index*len(g.Sets))+len(g.Sets)])
+	case "chaos sealed":
+		human.AddPool(g.pool[(index * g.chaosPacks):(index*g.chaosPacks + g.chaosPacks)])
 	}
 }

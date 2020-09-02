@@ -79,13 +79,14 @@ func (p *Players) Add(player Player) {
 	*p = append(*p, player)
 }
 
-func (p *Players) IndexOf(player Player) int {
+func (p *Players) IndexOf(player Player) *int {
 	for i, pl := range *p {
 		if player.ID() == pl.ID() {
-			return i
+			return &i
 		}
 	}
-	return -1
+	unknownIndex := -1
+	return &unknownIndex
 }
 
 func (p *Players) IndexOfID(id string) int {
