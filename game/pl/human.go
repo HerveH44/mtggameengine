@@ -62,7 +62,7 @@ func (h *Human) Attach(conn socketio.Conn) {
 	}
 	h.Conn = conn
 	h.isConnected = true
-	h.Emit("pool", h.pool)
+	h.sendPool()
 
 	// Draft
 	h.OnEvent("handlePack", h.onPick)
@@ -102,4 +102,15 @@ func (h *Human) sendPack(pack models.Pack) {
 	h.Emit("pack", h.pack)
 	h.PickNumber++
 	h.Emit("pickNumber", h.PickNumber)
+}
+
+func (h *Human) AddPool(pool models.Pool) {
+	for _, p := range pool {
+		h.pool = append(h.pool, p...)
+	}
+	h.sendPool()
+}
+
+func (h *Human) sendPool() {
+	h.Emit("pool", h.pool)
 }

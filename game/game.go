@@ -235,23 +235,15 @@ func (g *defaultGame) setHostPermissions(player *pl.Human) {
 	player.OnEvent("swap", g.swap)
 }
 
-func (g *defaultGame) start(c socketio.Conn, startRequest StartRequest) {
-	g.useTimer = startRequest.UseTimer
-	g.timerLength = startRequest.TimerLength
-
-	if startRequest.AddBots {
-		g.addBots()
-	}
-
-	if startRequest.ShufflePlayers {
-		g.shufflePlayers()
-	}
-
+func (g *defaultGame) start(_ socketio.Conn, startRequest StartRequest) {
 	g.createPool()
 
 	//Handle sealed or draft or other?
-	if g.Type == "draft" {
-		g.handleDraft()
+	switch g.Type {
+	case "draft":
+		g.handleDraft(startRequest)
+	case "sealed":
+		g.handleSealed()
 	}
 
 	g.broadcastPosition()
@@ -319,6 +311,8 @@ func (g *defaultGame) swap(_ socketio.Conn, msg [2]int) {
 
 func (g *defaultGame) createPool() {
 	switch g.Type {
+	case "sealed":
+		fallthrough
 	case "draft":
 		regularPool, err := g.poolService.MakeRegularPool(models.RegularRequest{
 			Players: len(g.players),
@@ -331,7 +325,18 @@ func (g *defaultGame) createPool() {
 	}
 }
 
-func (g *defaultGame) handleDraft() {
+func (g *defaultGame) handleDraft(startRequest StartRequest) {
+	g.useTimer = startRequest.UseTimer
+	g.timerLength = startRequest.TimerLength
+
+	if startRequest.AddBots {
+		g.addBots()
+	}
+
+	if startRequest.ShufflePlayers {
+		g.shufflePlayers()
+	}
+
 	for _, p := range g.players {
 		if !p.IsBot() {
 			human := p.(*pl.Human)
@@ -415,7 +420,22 @@ func (g *defaultGame) getNextPlayer(playerIndex int) pl.Player {
 
 func (g *defaultGame) endGame() {
 	log.Println(g.id, "game ended")
-
 	g.round = -1
 	g.meta()
+}
+
+func (g *defaultGame) handleSealed() {
+	g.endGame()
+	for i, p := range g.players {
+		human, ok := p.(*pl.Human)
+		if !ok {
+			log.Println(g.id, "all players should be human")
+			log.Println(g.players)
+			continue
+		}
+		human.AddPool(g.pool[(i * len(g.Sets)) : (i*len(g.Sets))+len(g.Sets)])
+		human.Set(PlayerBasicInfo{
+			Round: g.round,
+		})
+	}
 }
