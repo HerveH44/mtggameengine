@@ -1,6 +1,10 @@
 package pl
 
-import "mtggameengine/models"
+import (
+	"math/rand"
+	"mtggameengine/models"
+	"time"
+)
 
 type Bot struct {
 	player
@@ -36,7 +40,8 @@ func (b *Bot) StartPicking() {
 			if len(pack) <= 0 {
 				continue
 			} else {
-				pack.Pick(0)
+				rand.Seed(time.Now().UnixNano())
+				pack.Pick(rand.Intn(len(pack)))
 				b.pass(pack)
 			}
 		}
