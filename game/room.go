@@ -66,7 +66,7 @@ func (d *defaultRoom) Join(conn socketio.Conn) {
 		message := Message{
 			Name: conn.Name(),
 			Text: msg,
-			Time: time.Now().Unix(),
+			Time: time.Now().UnixNano() / 1000000,
 		}
 
 		d.lock.Lock()
