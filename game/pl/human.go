@@ -40,10 +40,15 @@ func (h *Human) IsHost() bool {
 }
 
 func (h *Human) Attach(conn socketio.Conn) {
+	if conn != h.Conn {
+		h.Conn.Close()
+	}
 	h.Conn = conn
 	h.isConnected = true
+	h.OnEvent("pick", h.onPick)
+
 	if h.pack != nil {
-		h.sendPack()
+		h.Emit("pack", h.pack)
 	}
 }
 
@@ -56,18 +61,20 @@ func (h *Human) Kick() {
 	h.isConnected = false
 }
 
+func (h *Human) onPick(conn socketio.Conn, index int) {
+	if h.pack == nil || index >= len(*h.pack) {
+		return
+	}
+	card := (*h.pack)[index]
+	log.Println("pick", index)
+	log.Println("card picked", card.Name)
+	packToPass := (*h.pack).Pick(index)
+	h.nextPlayer.AddPack(&packToPass)
+	h.pickLock.Unlock()
+}
+
 func (h *Human) StartPicking(emptyPacks chan<- *models.Pack) {
-	h.OnEvent("pick", func(conn socketio.Conn, index int) {
-		if h.pack == nil || index >= len(*h.pack) {
-			return
-		}
-		card := (*h.pack)[index]
-		log.Println("pick", index)
-		log.Println("card picked", card.Name)
-		packToPass := (*h.pack).Pick(index)
-		h.nextPlayer.AddPack(&packToPass)
-		h.pickLock.Unlock()
-	})
+	h.OnEvent("pick", h.onPick)
 
 	go func() {
 		for pack := range h.Packs {
