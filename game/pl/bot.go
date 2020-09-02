@@ -36,7 +36,7 @@ func (b *Bot) StartPicking(emptyPacks chan<- *models.Pack) {
 			if len(*pack) <= 0 {
 				emptyPacks <- pack
 			} else {
-				passingPack := (*pack)[1:len(*pack)]
+				passingPack := pack.Pick(0)
 				b.nextPlayer.AddPack(&passingPack)
 			}
 		}

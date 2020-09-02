@@ -24,6 +24,14 @@ type Card struct {
 
 type Pack []Card
 
+func (p Pack) Pick(index int) Pack {
+	if index >= len(p) {
+		return p
+	}
+	(p)[index] = (p)[len(p)-1]
+	return p[:len(p)-1]
+}
+
 type Pool []Pack
 
 func (p *Pool) Shift() Pack {

@@ -337,6 +337,9 @@ func (g *defaultGame) handleDraft() {
 			human := p.(*pl.Human)
 			human.UseTimer = g.useTimer
 			human.TimerLength = g.timerLength
+			human.OnEvent("pick", func(conn socketio.Conn, _ int) {
+				g.meta()
+			})
 		}
 	}
 	g.meta()
@@ -349,7 +352,7 @@ func (g *defaultGame) startRound() {
 	}
 
 	g.round++
-	if g.round == g.rounds {
+	if g.round > g.rounds {
 		g.endGame()
 		return
 	}
