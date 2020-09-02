@@ -10,12 +10,14 @@ type Player interface {
 	IsConnected() bool
 	IsHost() bool
 	IsBot() bool
+
+	// Draft
 	GetPacksCount() int
 	AddPack(pack models.Pack)
 	Time() int
 	Hash() string
-	SetNextPlayer(nextPlayer Player)
-	StartPicking(emptyPacks chan<- models.Pack)
+	OnPass(f func(models.Pack))
+	StartPicking()
 	StopPicking()
 }
 
@@ -24,10 +26,11 @@ type player struct {
 	name       string
 	Packs      chan models.Pack
 	nextPlayer Player
+	pass       func(models.Pack)
 }
 
-func (p *player) SetNextPlayer(nextPlayer Player) {
-	p.nextPlayer = nextPlayer
+func (p *player) OnPass(f func(models.Pack)) {
+	p.pass = f
 }
 
 func (p *player) GetPacksCount() int {

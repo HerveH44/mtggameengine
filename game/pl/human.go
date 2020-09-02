@@ -1,7 +1,6 @@
 package pl
 
 import (
-	"log"
 	"mtggameengine/models"
 	socketio "mtggameengine/socket"
 	"sync"
@@ -17,6 +16,22 @@ type Human struct {
 	PickNumber  int
 	pickLock    sync.Mutex
 	pack        models.Pack
+	pool        models.Cards
+}
+
+func NewHuman(conn socketio.Conn, isHost bool) *Human {
+	h := &Human{
+		Conn: conn,
+		player: &player{
+			name:  conn.Name(),
+			Packs: make(chan models.Pack, 100),
+		},
+		isConnected: true,
+		isHost:      isHost,
+		pool:        make(models.Cards, 0),
+	}
+	h.OnEvent("pick", h.onPick)
+	return h
 }
 
 func (h *Human) Name() string {
@@ -50,6 +65,8 @@ func (h *Human) Attach(conn socketio.Conn) {
 	if h.pack != nil {
 		h.Emit("pack", h.pack)
 	}
+
+	h.Emit("pool", h.pool)
 }
 
 func (h *Human) IsConnected() bool {
@@ -67,21 +84,20 @@ func (h *Human) onPick(conn socketio.Conn, index int) {
 	}
 	defer h.pickLock.Unlock()
 	card := h.pack[index]
-	log.Println("pick", index)
-	log.Println("card picked", card.Name)
+	h.Emit("add", card)
+	h.pool.Push(card)
 	h.pack.Pick(index)
-	h.nextPlayer.AddPack(h.pack)
+	h.pass(h.pack)
 }
 
-func (h *Human) StartPicking(emptyPacks chan<- models.Pack) {
+func (h *Human) StartPicking() {
 	go func() {
 		for pack := range h.Packs {
 			if len(pack) <= 0 {
-				emptyPacks <- pack
+				continue
 			} else {
 				h.pickLock.Lock()
-				h.pack = pack
-				h.sendPack()
+				h.sendPack(pack)
 			}
 		}
 	}()
@@ -92,22 +108,9 @@ func (h *Human) StopPicking() {
 	h.Packs = make(chan models.Pack, 100)
 }
 
-func (h *Human) sendPack() {
+func (h *Human) sendPack(pack models.Pack) {
+	h.pack = pack
 	h.Emit("pack", h.pack)
 	h.PickNumber++
 	h.Emit("pickNumber", h.PickNumber)
-}
-
-func NewHuman(conn socketio.Conn, isHost bool) *Human {
-	h := &Human{
-		Conn: conn,
-		player: &player{
-			name:  conn.Name(),
-			Packs: make(chan models.Pack, 100),
-		},
-		isConnected: true,
-		isHost:      isHost,
-	}
-	h.OnEvent("pick", h.onPick)
-	return h
 }

@@ -39,3 +39,9 @@ func (p *Pool) Shift() Pack {
 	*p = (*p)[1:len(*p)]
 	return pack
 }
+
+type Cards []Card
+
+func (p *Cards) Push(card Card) {
+	*p = append(*p, card)
+}

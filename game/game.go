@@ -364,9 +364,20 @@ func (g *defaultGame) startRound() {
 
 	// Give packs to every player
 	for i, player := range g.players {
-		player.SetNextPlayer(g.getNextPlayer(i))
 		pack := g.pool.Shift()
 		player.AddPack(pack)
+		player.OnPass(func(pack models.Pack) {
+			if len(pack) == 0 {
+				g.decreasePackCount()
+				return
+			} else {
+				nextPlayer := g.getNextPlayer(i)
+				nextPlayer.AddPack(pack)
+				if !nextPlayer.IsBot() {
+					g.meta()
+				}
+			}
+		})
 		if !player.IsBot() {
 			human := player.(*pl.Human)
 			human.PickNumber = 0
@@ -377,28 +388,19 @@ func (g *defaultGame) startRound() {
 		}
 	}
 
-	g.emptyPacksChan = make(chan models.Pack, len(g.players))
 	for _, player := range g.players {
-		player.StartPicking(g.emptyPacksChan)
+		player.StartPicking()
 	}
-
-	go func() {
-		count := 0
-		defer g.startRound()
-		for range g.emptyPacksChan {
-			count++
-			// emptied all the packs of the round
-			if count == cap(g.emptyPacksChan) {
-				log.Println("Finished round")
-				for _, player := range g.players {
-					player.StopPicking()
-				}
-				close(g.emptyPacksChan)
-			}
-		}
-	}()
-
 	g.meta()
+}
+
+func (g *defaultGame) decreasePackCount() {
+	g.packCount--
+	if g.packCount <= 0 {
+		g.startRound()
+	} else {
+		g.meta()
+	}
 }
 
 func (g *defaultGame) getNextPlayer(playerIndex int) pl.Player {

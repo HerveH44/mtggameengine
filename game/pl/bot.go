@@ -30,14 +30,14 @@ func (b *Bot) Hash() string {
 	return ""
 }
 
-func (b *Bot) StartPicking(emptyPacks chan<- models.Pack) {
+func (b *Bot) StartPicking() {
 	go func() {
 		for pack := range b.Packs {
 			if len(pack) <= 0 {
-				emptyPacks <- pack
+				continue
 			} else {
 				pack.Pick(0)
-				b.nextPlayer.AddPack(pack)
+				b.pass(pack)
 			}
 		}
 	}()
