@@ -397,6 +397,9 @@ func (g *defaultGame) startRound() {
 func (g *defaultGame) decreasePackCount() {
 	g.packCount--
 	if g.packCount <= 0 {
+		for _, p := range g.players {
+			p.StopPicking()
+		}
 		g.startRound()
 	} else {
 		g.meta()

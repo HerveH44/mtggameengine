@@ -23,10 +23,11 @@ type Player interface {
 
 //Base type for bot and Human players
 type player struct {
-	name       string
-	Packs      chan models.Pack
-	nextPlayer Player
-	pass       func(models.Pack)
+	name        string
+	Packs       chan models.Pack
+	stopPicking chan bool
+	pass        func(models.Pack)
+	pick        func(models.Pack)
 }
 
 func (p *player) OnPass(i int, f func(int, models.Pack)) {
@@ -45,6 +46,31 @@ func (p *player) Name() string {
 
 func (p *player) AddPack(pack models.Pack) {
 	p.Packs <- pack
+}
+
+func (p *player) StartPicking() {
+	go func() {
+		for {
+			select {
+			case pack := <-p.Packs:
+				if len(pack) <= 0 {
+					continue
+				} else {
+					p.pick(pack)
+				}
+			case <-p.stopPicking:
+				return
+			}
+		}
+	}()
+}
+
+func (p *player) StopPicking() {
+	p.stopPicking <- true
+}
+
+func (p *player) onPack(f func(models.Pack)) {
+	p.pick = f
 }
 
 type Players []Player

@@ -23,14 +23,16 @@ func NewHuman(conn socketio.Conn, isHost bool) *Human {
 	h := &Human{
 		Conn: conn,
 		player: &player{
-			name:  conn.Name(),
-			Packs: make(chan models.Pack, 100),
+			name:        conn.Name(),
+			Packs:       make(chan models.Pack, 100),
+			stopPicking: make(chan bool),
 		},
 		isConnected: true,
 		isHost:      isHost,
 		pool:        make(models.Cards, 0),
 	}
 	h.OnEvent("pick", h.onPick)
+	h.onPack(h.handlePack)
 	return h
 }
 
@@ -60,13 +62,13 @@ func (h *Human) Attach(conn socketio.Conn) {
 	}
 	h.Conn = conn
 	h.isConnected = true
-	h.OnEvent("pick", h.onPick)
+	h.Emit("pool", h.pool)
 
+	// Draft
+	h.OnEvent("handlePack", h.onPick)
 	if h.pack != nil {
 		h.Emit("pack", h.pack)
 	}
-
-	h.Emit("pool", h.pool)
 }
 
 func (h *Human) IsConnected() bool {
@@ -78,7 +80,7 @@ func (h *Human) Kick() {
 	h.isConnected = false
 }
 
-func (h *Human) onPick(conn socketio.Conn, index int) {
+func (h *Human) onPick(_ socketio.Conn, index int) {
 	if h.pack == nil || index >= len(h.pack) {
 		return
 	}
@@ -90,22 +92,9 @@ func (h *Human) onPick(conn socketio.Conn, index int) {
 	h.pass(h.pack)
 }
 
-func (h *Human) StartPicking() {
-	go func() {
-		for pack := range h.Packs {
-			if len(pack) <= 0 {
-				continue
-			} else {
-				h.pickLock.Lock()
-				h.sendPack(pack)
-			}
-		}
-	}()
-}
-
-func (h *Human) StopPicking() {
-	close(h.Packs)
-	h.Packs = make(chan models.Pack, 100)
+func (h *Human) handlePack(pack models.Pack) {
+	h.pickLock.Lock()
+	h.sendPack(pack)
 }
 
 func (h *Human) sendPack(pack models.Pack) {

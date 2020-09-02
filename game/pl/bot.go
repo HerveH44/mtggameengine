@@ -34,29 +34,18 @@ func (b *Bot) Hash() string {
 	return ""
 }
 
-func (b *Bot) StartPicking() {
-	go func() {
-		for pack := range b.Packs {
-			if len(pack) <= 0 {
-				continue
-			} else {
-				rand.Seed(time.Now().UnixNano())
-				pack.Pick(rand.Intn(len(pack)))
-				b.pass(pack)
-			}
-		}
-	}()
-
-}
-
-func (b *Bot) StopPicking() {
-	close(b.Packs)
-	b.Packs = make(chan models.Pack, 1)
+func (b *Bot) pick(pack models.Pack) {
+	rand.Seed(time.Now().UnixNano())
+	pack.Pick(rand.Intn(len(pack)))
+	b.pass(pack)
 }
 
 func NewBot() Player {
-	return &Bot{player{
-		name:  "bot",
-		Packs: make(chan models.Pack, 1),
+	bot := Bot{player{
+		name:        "bot",
+		Packs:       make(chan models.Pack, 1),
+		stopPicking: make(chan bool),
 	}}
+	bot.onPack(bot.pick)
+	return &bot
 }
