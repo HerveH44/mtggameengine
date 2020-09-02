@@ -10,23 +10,41 @@ type Player interface {
 	IsConnected() bool
 	IsHost() bool
 	IsBot() bool
-	GetPacks() []*models.Pack
+	GetPacksCount() int
+	AddPack(pack *models.Pack)
 	Time() int
 	Hash() string
+	SetNextPlayer(nextPlayer Player)
+	StartPicking(emptyPacks chan<- *models.Pack)
+	StopPicking()
 }
 
 //Base type for bot and Human players
 type player struct {
-	name  string
-	Packs []*models.Pack
+	name       string
+	Packs      chan *models.Pack
+	nextPlayer Player
 }
 
-func (p *player) GetPacks() []*models.Pack {
-	return p.Packs
+func (p *player) SetNextPlayer(nextPlayer Player) {
+	p.nextPlayer = nextPlayer
+}
+
+func (p *player) GetPacksCount() int {
+	return len(p.Packs)
 }
 
 func (p *player) Name() string {
 	return p.name
+}
+
+func (p *player) AddPack(pack *models.Pack) {
+	p.Packs <- pack
+}
+
+func (p *player) StopPicking() {
+	close(p.Packs)
+	p.Packs = make(chan *models.Pack)
 }
 
 type Players []Player

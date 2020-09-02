@@ -25,3 +25,9 @@ type Card struct {
 type Pack []Card
 
 type Pool []Pack
+
+func (p *Pool) Shift() Pack {
+	pack := (*p)[0]
+	*p = (*p)[:len(*p)]
+	return pack
+}

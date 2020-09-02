@@ -10,6 +10,9 @@ type Human struct {
 	*player
 	isConnected bool
 	isHost      bool
+	UseTimer    bool
+	TimerLength string
+	PickNumber  int
 }
 
 func (h *Human) Name() string {
@@ -46,13 +49,26 @@ func (h *Human) Kick() {
 	h.isConnected = false
 }
 
+func (h *Human) StartPicking(emptyPacks chan<- *models.Pack) {
+	go func() {
+		for pack := range h.Packs {
+			if len(*pack) <= 0 {
+				emptyPacks <- pack
+			} else {
+				h.Emit("pack", pack)
+				h.PickNumber++
+				h.Emit("pickNumber", h.PickNumber)
+			}
+		}
+	}()
+}
+
 func NewHuman(conn socketio.Conn, isHost bool) *Human {
-	packs := make([]*models.Pack, 0)
 	return &Human{
 		Conn: conn,
 		player: &player{
 			name:  conn.Name(),
-			Packs: packs,
+			Packs: make(chan *models.Pack, 1),
 		},
 		isConnected: true,
 		isHost:      isHost,

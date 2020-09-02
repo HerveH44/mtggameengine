@@ -10,30 +10,43 @@ func (b *Bot) ID() string {
 	return ""
 }
 
-func (b Bot) IsConnected() bool {
+func (b *Bot) IsConnected() bool {
 	return false
 }
 
-func (b Bot) IsHost() bool {
+func (b *Bot) IsHost() bool {
 	return false
 }
 
-func (b Bot) IsBot() bool {
+func (b *Bot) IsBot() bool {
 	return true
 }
 
-func (b Bot) Time() int {
+func (b *Bot) Time() int {
 	return 0
 }
 
-func (b Bot) Hash() string {
+func (b *Bot) Hash() string {
 	return ""
 }
 
+func (b *Bot) StartPicking(emptyPacks chan<- *models.Pack) {
+	go func() {
+		for pack := range b.Packs {
+			if len(*pack) <= 0 {
+				emptyPacks <- pack
+			} else {
+				passingPack := (*pack)[1:len(*pack)]
+				b.nextPlayer.AddPack(&passingPack)
+			}
+		}
+	}()
+
+}
+
 func NewBot() Player {
-	packs := make([]*models.Pack, 0)
 	return &Bot{player{
 		name:  "bot",
-		Packs: packs,
+		Packs: make(chan *models.Pack, 1),
 	}}
 }

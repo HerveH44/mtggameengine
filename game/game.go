@@ -34,7 +34,31 @@ func CreateGame(gameRequest models.CreateGameRequest, cubeList []string, service
 		PacksInfo:   strings.Join(gameRequest.Sets, " / "),
 		players:     make(pl.Players, 0),
 		poolService: service,
+		rounds:      calcRounds(gameRequest),
+		delta:       -1,
 	}
+}
+
+func calcRounds(request models.CreateGameRequest) int {
+	switch request.Type {
+	case "draft":
+		fallthrough
+	case "decadent draft":
+		fallthrough
+	case "sealed":
+		return len(request.Sets)
+
+	case "cube draft":
+		fallthrough
+	case "cube sealed":
+		return request.Cube.Packs
+
+	case "chaos draft":
+		fallthrough
+	case "chaos sealed":
+		return request.ChaosPackNumber
+	}
+	return 0
 }
 
 type defaultGame struct {
@@ -60,11 +84,21 @@ type defaultGame struct {
 
 	lock      sync.RWMutex // access lock
 	players   pl.Players
-	round     int
 	PacksInfo string
 
 	poolService pool.PoolService
 	pool        models.Pool
+
+	// TODO: ref this. don't think we need it as is
+	round int
+
+	// Things only for draft mode
+	useTimer       bool
+	timerLength    string
+	rounds         int
+	packCount      int
+	delta          int //to check the order of pack passing
+	emptyPacksChan chan *models.Pack
 }
 
 func (g *defaultGame) ID() string {
@@ -172,7 +206,7 @@ func (g *defaultGame) meta() {
 		ps := PlayerSpecificInfo{
 			Name:        p.Name(),
 			Time:        p.Time(),
-			Packs:       len(p.GetPacks()),
+			Packs:       p.GetPacksCount(),
 			IsBot:       p.IsBot(),
 			IsConnected: p.IsConnected(),
 			Hash:        p.Hash(),
@@ -202,6 +236,9 @@ func (g *defaultGame) setHostPermissions(player *pl.Human) {
 }
 
 func (g *defaultGame) start(c socketio.Conn, startRequest StartRequest) {
+	g.useTimer = startRequest.UseTimer
+	g.timerLength = startRequest.TimerLength
+
 	if startRequest.AddBots {
 		g.addBots()
 	}
@@ -283,30 +320,91 @@ func (g *defaultGame) swap(_ socketio.Conn, msg [2]int) {
 func (g *defaultGame) createPool() {
 	switch g.Type {
 	case "draft":
-		{
-			regularPool, err := g.poolService.MakeRegularPool(models.RegularRequest{
-				Players: len(g.players),
-				Sets:    g.Sets,
-			})
-			if err != nil {
-				log.Println("Could not fetch regularPool", err)
-			}
-			g.pool = regularPool
+		regularPool, err := g.poolService.MakeRegularPool(models.RegularRequest{
+			Players: len(g.players),
+			Sets:    g.Sets,
+		})
+		if err != nil {
+			log.Println("Could not fetch regularPool", err)
 		}
+		g.pool = regularPool
 	}
 }
 
 func (g *defaultGame) handleDraft() {
-	g.round++
 	for _, p := range g.players {
 		if !p.IsBot() {
 			human := p.(*pl.Human)
-			human.Emit("pack", g.pool[0])
-			human.Emit("pickNumber", 1)
+			human.UseTimer = g.useTimer
+			human.TimerLength = g.timerLength
+		}
+	}
+	g.meta()
+	g.startRound()
+}
+
+func (g *defaultGame) startRound() {
+	if g.round != 0 {
+
+	}
+
+	g.round++
+	if g.round == g.rounds {
+		g.endGame()
+		return
+	}
+
+	log.Println(g.id, "new round started")
+
+	g.packCount = len(g.players)
+	g.delta *= -1
+
+	// Give packs to every player
+	for i, player := range g.players {
+		player.SetNextPlayer(g.getNextPlayer(i))
+		pack := g.pool.Shift()
+		player.AddPack(&pack)
+		if !player.IsBot() {
+			human := player.(*pl.Human)
+			human.PickNumber = 0
 			human.Set(PlayerBasicInfo{
-				Round: g.round,
+				PackSize: len(pack),
+				Round:    g.round,
 			})
 		}
 	}
+
+	g.emptyPacksChan = make(chan *models.Pack, len(g.players))
+	for _, player := range g.players {
+		player.StartPicking(g.emptyPacksChan)
+	}
+
+	go func() {
+		count := 0
+		for range g.emptyPacksChan {
+			count++
+			// emptied all the packs of the round
+			if count == cap(g.emptyPacksChan) {
+				for _, player := range g.players {
+					player.StopPicking()
+				}
+			}
+		}
+	}()
+
+	g.meta()
+}
+
+func (g *defaultGame) getNextPlayer(playerIndex int) pl.Player {
+	playersLen := len(g.players)
+	nextIndex := playerIndex + g.delta
+	index := (nextIndex%playersLen + playersLen) % playersLen
+	return g.players[index]
+}
+
+func (g *defaultGame) endGame() {
+	log.Println(g.id, "game ended")
+
+	g.round = -1
 	g.meta()
 }

@@ -13,14 +13,15 @@ type MTGJsonVersion struct {
 }
 
 type CreateGameRequest struct {
-	Type       string   `json:"type"`
-	Seats      int      `json:"seats"`
-	Title      string   `json:"title"`
-	IsPrivate  bool     `json:"isPrivate"`
-	ModernOnly bool     `json:"modernOnly"`
-	TotalChaos bool     `json:"totalChaos"`
-	Sets       []string `json:"sets"`
-	Cube       struct {
+	Type            string   `json:"type"`
+	Seats           int      `json:"seats"`
+	Title           string   `json:"title"`
+	IsPrivate       bool     `json:"isPrivate"`
+	ChaosPackNumber int      `json:"chaosPacksNumber"`
+	ModernOnly      bool     `json:"modernOnly"`
+	TotalChaos      bool     `json:"totalChaos"`
+	Sets            []string `json:"sets"`
+	Cube            struct {
 		List         string `json:"list"`
 		Cards        int    `json:"cards"`
 		Packs        int    `json:"packs"`
