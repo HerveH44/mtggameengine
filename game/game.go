@@ -364,14 +364,14 @@ func (g *defaultGame) startRound() {
 
 	// Give packs to every player
 	for i, player := range g.players {
-		pack := g.pool.Shift()
+		pack := g.pool.Remove(i * (len(g.Sets) - g.round))
 		player.AddPack(pack)
-		player.OnPass(func(pack models.Pack) {
+		player.OnPass(i, func(index int, pack models.Pack) {
 			if len(pack) == 0 {
 				g.decreasePackCount()
 				return
 			} else {
-				nextPlayer := g.getNextPlayer(i)
+				nextPlayer := g.getNextPlayer(index)
 				nextPlayer.AddPack(pack)
 				if !nextPlayer.IsBot() {
 					g.meta()

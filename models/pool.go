@@ -34,9 +34,9 @@ func (p *Pack) Pick(index int) {
 
 type Pool []Pack
 
-func (p *Pool) Shift() Pack {
-	pack := (*p)[0]
-	*p = (*p)[1:len(*p)]
+func (p *Pool) Remove(i int) Pack {
+	pack := (*p)[i]
+	*p = append((*p)[:i], (*p)[i+1:]...)
 	return pack
 }
 

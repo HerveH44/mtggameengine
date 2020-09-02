@@ -16,7 +16,7 @@ type Player interface {
 	AddPack(pack models.Pack)
 	Time() int
 	Hash() string
-	OnPass(f func(models.Pack))
+	OnPass(i int, f func(int, models.Pack))
 	StartPicking()
 	StopPicking()
 }
@@ -29,8 +29,10 @@ type player struct {
 	pass       func(models.Pack)
 }
 
-func (p *player) OnPass(f func(models.Pack)) {
-	p.pass = f
+func (p *player) OnPass(i int, f func(int, models.Pack)) {
+	p.pass = func(pack models.Pack) {
+		f(i, pack)
+	}
 }
 
 func (p *player) GetPacksCount() int {
