@@ -98,7 +98,7 @@ type defaultGame struct {
 	rounds         int
 	packCount      int
 	delta          int //to check the order of pack passing
-	emptyPacksChan chan *models.Pack
+	emptyPacksChan chan models.Pack
 }
 
 func (g *defaultGame) ID() string {
@@ -366,7 +366,7 @@ func (g *defaultGame) startRound() {
 	for i, player := range g.players {
 		player.SetNextPlayer(g.getNextPlayer(i))
 		pack := g.pool.Shift()
-		player.AddPack(&pack)
+		player.AddPack(pack)
 		if !player.IsBot() {
 			human := player.(*pl.Human)
 			human.PickNumber = 0
@@ -377,7 +377,7 @@ func (g *defaultGame) startRound() {
 		}
 	}
 
-	g.emptyPacksChan = make(chan *models.Pack, len(g.players))
+	g.emptyPacksChan = make(chan models.Pack, len(g.players))
 	for _, player := range g.players {
 		player.StartPicking(g.emptyPacksChan)
 	}

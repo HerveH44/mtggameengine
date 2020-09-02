@@ -30,14 +30,14 @@ func (b *Bot) Hash() string {
 	return ""
 }
 
-func (b *Bot) StartPicking(emptyPacks chan<- *models.Pack) {
+func (b *Bot) StartPicking(emptyPacks chan<- models.Pack) {
 	go func() {
 		for pack := range b.Packs {
-			if len(*pack) <= 0 {
+			if len(pack) <= 0 {
 				emptyPacks <- pack
 			} else {
-				passingPack := pack.Pick(0)
-				b.nextPlayer.AddPack(&passingPack)
+				pack.Pick(0)
+				b.nextPlayer.AddPack(pack)
 			}
 		}
 	}()
@@ -47,6 +47,6 @@ func (b *Bot) StartPicking(emptyPacks chan<- *models.Pack) {
 func NewBot() Player {
 	return &Bot{player{
 		name:  "bot",
-		Packs: make(chan *models.Pack, 1),
+		Packs: make(chan models.Pack, 1),
 	}}
 }

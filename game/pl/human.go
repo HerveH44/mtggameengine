@@ -16,7 +16,7 @@ type Human struct {
 	TimerLength string
 	PickNumber  int
 	pickLock    sync.Mutex
-	pack        *models.Pack
+	pack        models.Pack
 }
 
 func (h *Human) Name() string {
@@ -62,23 +62,23 @@ func (h *Human) Kick() {
 }
 
 func (h *Human) onPick(conn socketio.Conn, index int) {
-	if h.pack == nil || index >= len(*h.pack) {
+	if h.pack == nil || index >= len(h.pack) {
 		return
 	}
-	card := (*h.pack)[index]
+	defer h.pickLock.Unlock()
+	card := h.pack[index]
 	log.Println("pick", index)
 	log.Println("card picked", card.Name)
-	packToPass := (*h.pack).Pick(index)
-	h.nextPlayer.AddPack(&packToPass)
-	h.pickLock.Unlock()
+	h.pack.Pick(index)
+	h.nextPlayer.AddPack(h.pack)
 }
 
-func (h *Human) StartPicking(emptyPacks chan<- *models.Pack) {
+func (h *Human) StartPicking(emptyPacks chan<- models.Pack) {
 	h.OnEvent("pick", h.onPick)
 
 	go func() {
 		for pack := range h.Packs {
-			if len(*pack) <= 0 {
+			if len(pack) <= 0 {
 				emptyPacks <- pack
 			} else {
 				h.pickLock.Lock()
@@ -100,7 +100,7 @@ func NewHuman(conn socketio.Conn, isHost bool) *Human {
 		Conn: conn,
 		player: &player{
 			name:  conn.Name(),
-			Packs: make(chan *models.Pack, 100),
+			Packs: make(chan models.Pack, 100),
 		},
 		isConnected: true,
 		isHost:      isHost,

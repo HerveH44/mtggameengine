@@ -24,18 +24,18 @@ type Card struct {
 
 type Pack []Card
 
-func (p Pack) Pick(index int) Pack {
-	if index >= len(p) {
-		return p
+func (p *Pack) Pick(index int) {
+	if index >= len(*p) {
+		return
 	}
-	(p)[index] = (p)[len(p)-1]
-	return p[:len(p)-1]
+	(*p)[index] = (*p)[len(*p)-1]
+	*p = (*p)[:len(*p)-1]
 }
 
 type Pool []Pack
 
 func (p *Pool) Shift() Pack {
 	pack := (*p)[0]
-	*p = (*p)[:len(*p)]
+	*p = (*p)[1:len(*p)]
 	return pack
 }
