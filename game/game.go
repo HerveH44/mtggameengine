@@ -19,7 +19,56 @@ type Game interface {
 	Join(conn socketio.Conn)
 }
 
-func CreateGame(gameRequest models.CreateGameRequest, cubeList []string, service pool.PoolService) Game {
+type defaultGame struct {
+	Room
+	id        string
+	Type      string
+	Title     string
+	Seats     int
+	IsPrivate bool
+
+	//Players
+	HostID string
+
+	// Regular
+	Sets []string
+
+	// Chaos
+	ModernOnly bool
+	TotalChaos bool
+
+	//Cube
+	CubeList []string
+	Cube     CubeParams
+
+	lock      sync.RWMutex // access lock
+	players   pl.Players
+	PacksInfo string
+
+	poolService pool.Service
+	pool        models.Pool
+
+	// TODO: ref this. don't think we need it as is
+	round int
+
+	// Things only for draft mode
+	useTimer       bool
+	timerLength    string
+	rounds         int
+	packCount      int
+	delta          int //to check the order of pack passing
+	emptyPacksChan chan models.Pack
+	chaosPacks     int
+}
+
+type CubeParams struct {
+	List         []string
+	Cards        int
+	Packs        int
+	CubePoolSize int
+}
+
+func CreateGame(gameRequest models.CreateGameRequest, cubeList []string, service pool.Service) Game {
 	return &defaultGame{
 		Room:        newRoom(gameRequest.IsPrivate),
 		id:          uuid.New().String(),
@@ -30,13 +79,18 @@ func CreateGame(gameRequest models.CreateGameRequest, cubeList []string, service
 		Sets:        gameRequest.Sets,
 		ModernOnly:  gameRequest.ModernOnly,
 		TotalChaos:  gameRequest.TotalChaos,
-		CubeList:    cubeList,
 		PacksInfo:   strings.Join(gameRequest.Sets, " / "),
 		players:     make(pl.Players, 0),
 		poolService: service,
 		rounds:      calcRounds(gameRequest),
 		delta:       -1,
 		chaosPacks:  gameRequest.ChaosPackNumber,
+		Cube: CubeParams{
+			List:         cubeList,
+			Cards:        gameRequest.Cube.Cards,
+			Packs:        gameRequest.Cube.Packs,
+			CubePoolSize: gameRequest.Cube.CubePoolSize,
+		},
 	}
 }
 
@@ -60,47 +114,6 @@ func calcRounds(request models.CreateGameRequest) int {
 		return request.ChaosPackNumber
 	}
 	return 0
-}
-
-type defaultGame struct {
-	Room
-	id        string
-	Type      string
-	Title     string
-	Seats     int
-	IsPrivate bool
-
-	//Players
-	HostID string
-
-	// Regular
-	Sets []string
-
-	// Chaos
-	ModernOnly bool
-	TotalChaos bool
-
-	//Cube
-	CubeList []string
-
-	lock      sync.RWMutex // access lock
-	players   pl.Players
-	PacksInfo string
-
-	poolService pool.PoolService
-	pool        models.Pool
-
-	// TODO: ref this. don't think we need it as is
-	round int
-
-	// Things only for draft mode
-	useTimer       bool
-	timerLength    string
-	rounds         int
-	packCount      int
-	delta          int //to check the order of pack passing
-	emptyPacksChan chan models.Pack
-	chaosPacks     int
 }
 
 func (g *defaultGame) ID() string {
@@ -242,9 +255,13 @@ func (g *defaultGame) start(_ socketio.Conn, startRequest StartRequest) {
 	switch g.Type {
 	case "draft":
 		fallthrough
+	case "cube draft":
+		fallthrough
 	case "chaos draft":
 		g.handleDraft(startRequest)
 	case "sealed":
+		fallthrough
+	case "cube sealed":
 		fallthrough
 	case "chaos sealed":
 		g.handleSealed()
@@ -336,9 +353,31 @@ func (g *defaultGame) createPool() {
 			TotalChaos: g.TotalChaos,
 		})
 		if err != nil {
-			log.Println("Could not fetch regularPool", err)
+			log.Println("Could not fetch chaos pool", err)
 		}
 		g.pool = chaosPool
+	case "cube sealed":
+		cubePool, err := g.poolService.MakeCubePool(models.CubeRequest{
+			List:           g.Cube.List,
+			Players:        len(g.players),
+			PlayerPackSize: g.Cube.CubePoolSize,
+			Packs:          len(g.players),
+		})
+		if err != nil {
+			log.Println("Could not fetch cube pool", err)
+		}
+		g.pool = cubePool
+	case "cube draft":
+		cubePool, err := g.poolService.MakeCubePool(models.CubeRequest{
+			List:           g.Cube.List,
+			Players:        len(g.players),
+			PlayerPackSize: g.Cube.Cards,
+			Packs:          g.Cube.Packs,
+		})
+		if err != nil {
+			log.Println("Could not fetch cube pool", err)
+		}
+		g.pool = cubePool
 	}
 }
 
@@ -475,5 +514,7 @@ func (g *defaultGame) addPool(human *pl.Human, index int) {
 		human.AddPool(g.pool[(index * len(g.Sets)) : (index*len(g.Sets))+len(g.Sets)])
 	case "chaos sealed":
 		human.AddPool(g.pool[(index * g.chaosPacks):(index*g.chaosPacks + g.chaosPacks)])
+	case "cube sealed":
+		human.AddPool(g.pool[index : index+1])
 	}
 }

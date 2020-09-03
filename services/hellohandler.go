@@ -9,7 +9,7 @@ import (
 
 type HelloHandler func(conn socketio.Conn)
 
-func NewHelloHandler(poolService pool.PoolService) HelloHandler {
+func NewHelloHandler(poolService pool.Service) HelloHandler {
 	return func(conn socketio.Conn) {
 		version, err := poolService.GetVersion()
 		if err != nil {

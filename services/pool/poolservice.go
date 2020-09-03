@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type PoolService interface {
+type Service interface {
 	GetVersion() (models.VersionResponse, error)
 	GetAvailableSets() (*models.AvailableSetsMap, error)
 	GetLatestSet() (models.LatestSetResponse, error)
@@ -19,11 +19,11 @@ type PoolService interface {
 
 	// specific pools
 	MakeChaosPool(request models.ChaosRequest) (models.Pool, error)
-	//MakeCubePool(request CubeRequest) (models.Pool, error)
+	MakeCubePool(request models.CubeRequest) (models.Pool, error)
 	MakeRegularPool(request models.RegularRequest) (models.Pool, error)
 }
 
-func NewPoolService(poolURL string) PoolService {
+func NewPoolService(poolURL string) Service {
 	c := cache.New(60*time.Minute, 10*time.Minute)
 	return &defaultPoolService{poolURL: poolURL, cache: c}
 }
@@ -156,6 +156,10 @@ func (d *defaultPoolService) MakeRegularPool(request models.RegularRequest) (poo
 }
 func (d *defaultPoolService) MakeChaosPool(request models.ChaosRequest) (pool models.Pool, err error) {
 	return makePool(fmt.Sprintf("%schaos", d.poolURL), request)
+}
+
+func (d *defaultPoolService) MakeCubePool(request models.CubeRequest) (models.Pool, error) {
+	return makePool(fmt.Sprintf("%scube", d.poolURL), request)
 }
 
 func makePool(url string, request interface{}) (pool models.Pool, err error) {

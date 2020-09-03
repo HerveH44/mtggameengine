@@ -15,7 +15,7 @@ type GameService interface {
 }
 
 type defaultGameService struct {
-	poolService pool.PoolService
+	poolService pool.Service
 	games       map[string]game.Game
 }
 
@@ -30,7 +30,7 @@ func (s *defaultGameService) Join(gameId string, conn socketio.Conn) {
 	s.games[gameId].Join(conn)
 }
 
-func NewDefaultGameService(service pool.PoolService) GameService {
+func NewDefaultGameService(service pool.Service) GameService {
 	return &defaultGameService{
 		poolService: service,
 		games:       make(map[string]game.Game),
@@ -44,11 +44,11 @@ func (s *defaultGameService) CreateGame(gameRequest models.CreateGameRequest, co
 	// Validate cube request
 	if gameRequest.Type == "cube draft" || gameRequest.Type == "cube sealed" {
 
-		if gameRequest.Type == "cube draft" && gameRequest.Cube.Cards*gameRequest.Cube.Packs*gameRequest.Seats < len(cubeList) {
+		if gameRequest.Type == "cube draft" && gameRequest.Cube.Cards*gameRequest.Cube.Packs*gameRequest.Seats > len(cubeList) {
 			return nil, fmt.Errorf("not enough cards")
 		}
 
-		if gameRequest.Type == "cube sealed" && gameRequest.Cube.CubePoolSize*gameRequest.Seats < len(cubeList) {
+		if gameRequest.Type == "cube sealed" && gameRequest.Cube.CubePoolSize*gameRequest.Seats > len(cubeList) {
 			return nil, fmt.Errorf("not enough cards")
 		}
 

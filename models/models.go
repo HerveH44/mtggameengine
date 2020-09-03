@@ -28,10 +28,10 @@ type ChaosRequest struct {
 }
 
 type CubeRequest struct {
-	Cubelist       []string `json:"list"`
-	Players        uint     `json:"players"`
-	PlayerPackSize uint     `json:"playerPackSize"`
-	Packs          uint     `json:"packs"`
+	List           []string `json:"list"`
+	Players        int      `json:"players"`
+	PlayerPackSize int      `json:"playerPackSize"`
+	Packs          int      `json:"packs"`
 }
 
 type CubeListRequest struct {
