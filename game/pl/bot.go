@@ -30,8 +30,8 @@ func (b *Bot) Time() int {
 	return 0
 }
 
-func (b *Bot) Hash() string {
-	return ""
+func (b *Bot) Hash() (h Hash) {
+	return h
 }
 
 func (b *Bot) pick(pack models.Pack) {

@@ -15,7 +15,7 @@ type Player interface {
 	GetPacksCount() int
 	AddPack(pack models.Pack)
 	Time() int
-	Hash() string
+	Hash() Hash
 	OnPass(i int, f func(int, models.Pack))
 	StartPicking()
 	StopPicking()

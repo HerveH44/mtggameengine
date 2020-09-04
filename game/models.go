@@ -1,12 +1,14 @@
 package game
 
+import "mtggameengine/game/pl"
+
 type PlayerSpecificInfo struct {
-	Name        string `json:"name"`
-	Time        int    `json:"time"`
-	Packs       int    `json:"packs"`
-	IsBot       bool   `json:"isBot"`
-	IsConnected bool   `json:"isConnected"`
-	Hash        string `json:"hash"`
+	Name        string  `json:"name"`
+	Time        int     `json:"time"`
+	Packs       int     `json:"packs"`
+	IsBot       bool    `json:"isBot"`
+	IsConnected bool    `json:"isConnected"`
+	Hash        pl.Hash `json:"hash"`
 }
 
 type StateInfo struct {

@@ -34,3 +34,8 @@ type LobbyStats struct {
 	Games       int `json:"numGames"`
 	ActiveGames int `json:"numActiveGames"`
 }
+
+type HashEvent struct {
+	Main map[string]int `json:"main"`
+	Side map[string]int `json:"side"`
+}

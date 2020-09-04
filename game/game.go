@@ -241,6 +241,9 @@ func (g *defaultGame) doJoin(player *pl.Human) {
 	player.OnEvent("name", func(c socketio.Conn, name string) {
 		g.meta()
 	})
+	player.OnEvent("hash", func(c socketio.Conn, _ models.HashEvent) {
+		g.meta()
+	})
 	g.meta()
 }
 
