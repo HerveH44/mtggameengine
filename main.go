@@ -41,7 +41,7 @@ func main() {
 			Name: name,
 		})
 		helloHandler(s)
-		server.BroadcastToRoom("/", "/", "set", models.LobbyStats{Players: server.RoomLen("/", "/")})
+		server.Broadcast("set", models.LobbyStats{Players: server.ConnectionsLen()})
 		return nil
 	})
 	server.OnEvent("create", func(s socketio.Conn, msg models.CreateGameRequest) {

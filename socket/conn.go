@@ -1,7 +1,6 @@
 package socketio
 
 import (
-	"errors"
 	"mtggameengine/socket/parser"
 	"net"
 	"net/http"
@@ -60,33 +59,32 @@ type writePacket struct {
 
 type conn struct {
 	engineio.Conn
-	name       string
-	encoder    *parser.Encoder
-	decoder    *parser.Decoder
-	errorChan  chan errorMessage
-	writeChan  chan writePacket
-	quitChan   chan struct{}
-	handlers   map[string]*namespaceHandler
-	namespaces map[string]*namespaceConn
-	closeOnce  sync.Once
-	id         uint64
+	name      string
+	encoder   *parser.Encoder
+	decoder   *parser.Decoder
+	errorChan chan errorMessage
+	writeChan chan writePacket
+	quitChan  chan struct{}
+	handler   *namespaceHandler
+	namespace *namespaceConn
+	closeOnce sync.Once
+	id        uint64
 }
 
-func newConn(c engineio.Conn, handlers map[string]*namespaceHandler) (*conn, error) {
+func newConn(c engineio.Conn, handler *namespaceHandler) (*conn, error) {
 	url := c.URL()
 	values := url.Query()
 	name := values.Get("name")
 
 	ret := &conn{
-		Conn:       c,
-		name:       name,
-		encoder:    parser.NewEncoder(c),
-		decoder:    parser.NewDecoder(c),
-		errorChan:  make(chan errorMessage),
-		writeChan:  make(chan writePacket),
-		quitChan:   make(chan struct{}),
-		handlers:   handlers,
-		namespaces: make(map[string]*namespaceConn),
+		Conn:      c,
+		name:      name,
+		encoder:   parser.NewEncoder(c),
+		decoder:   parser.NewDecoder(c),
+		errorChan: make(chan errorMessage),
+		writeChan: make(chan writePacket),
+		quitChan:  make(chan struct{}),
+		handler:   handler,
 	}
 	if err := ret.connect(); err != nil {
 		ret.Close()
@@ -106,12 +104,9 @@ func (c *conn) SetName(name string) {
 func (c *conn) Close() error {
 	var err error
 	c.closeOnce.Do(func() {
-		// For each namespace, leave all rooms, and call the disconnect handler.
-		for ns, nc := range c.namespaces {
-			nc.LeaveAll()
-			if nh := c.handlers[ns]; nh != nil && nh.onDisconnect != nil {
-				nh.onDisconnect(nc, "client namespace disconnect")
-			}
+		c.namespace.LeaveAll()
+		if c.handler != nil && c.handler.onDisconnect != nil {
+			c.handler.onDisconnect(c.namespace, "client namespace disconnect")
 		}
 		err = c.Conn.Close()
 		close(c.quitChan)
@@ -120,29 +115,17 @@ func (c *conn) Close() error {
 }
 
 func (c *conn) connect() error {
-	rootHandler, ok := c.handlers[""]
-	if !ok {
-		return errors.New("root ('/') doesn't have a namespace handler")
-	}
-	root := newNamespaceConn(c, "/", rootHandler.broadcast)
-	c.namespaces[""] = root
+	root := newNamespaceConn(c, "/", c.handler.broadcast)
 	root.Join("/")
+	root.SetContext(c.Conn.Context())
 
-	for _, ns := range c.namespaces {
-		ns.SetContext(c.Conn.Context())
-	}
 	go c.serveError()
 	go c.serveWrite()
 	go c.serveRead()
 
-	rootHandler.dispatch(root, "", nil)
+	c.handler.dispatch(root, "", nil)
 
 	return nil
-}
-
-func (c *conn) nextID() uint64 {
-	c.id++
-	return c.id
 }
 
 func (c *conn) write(args []reflect.Value) {
@@ -183,10 +166,8 @@ func (c *conn) serveError() {
 		case <-c.quitChan:
 			return
 		case msg := <-c.errorChan:
-			if handler := c.namespace(""); handler != nil {
-				if handler.onError != nil {
-					handler.onError(c.namespaces[""], msg.error)
-				}
+			if c.handler != nil && c.handler.onError != nil {
+				c.handler.onError(c.namespace, msg.error)
 			}
 		}
 	}
@@ -214,25 +195,16 @@ func (c *conn) serveRead() {
 			c.onError("", err)
 			return
 		}
-		conn, ok := c.namespaces[""]
-		if !ok {
-			c.decoder.DiscardLast()
-			continue
-		}
-		handler, ok := c.handlers[""]
-		if !ok {
-			c.decoder.DiscardLast()
-			continue
-		}
+
 		// Connection event handling
-		if conn.HasEvent(event) {
-			types := conn.getTypes(event)
+		if c.namespace.HasEvent(event) {
+			types := c.namespace.getTypes(event)
 			args, err := c.decoder.DecodeArgs(types)
 			if err != nil {
 				c.onError("header.Namespace", err)
 				return
 			}
-			ret, err := conn.Dispatch(event, args)
+			ret, err := c.namespace.Dispatch(event, args)
 			if err != nil {
 				c.onError("header.Namespace", err)
 				return
@@ -242,13 +214,13 @@ func (c *conn) serveRead() {
 			}
 		} else {
 			// Default handler
-			types := handler.getTypes(event)
+			types := c.handler.getTypes(event)
 			args, err := c.decoder.DecodeArgs(types)
 			if err != nil {
 				c.onError("header.Namespace", err)
 				return
 			}
-			ret, err := handler.dispatch(conn, event, args)
+			ret, err := c.handler.dispatch(c.namespace, event, args)
 			if err != nil {
 				c.onError("header.Namespace", err)
 				return
@@ -258,8 +230,4 @@ func (c *conn) serveRead() {
 			}
 		}
 	}
-}
-
-func (c *conn) namespace(nsp string) *namespaceHandler {
-	return c.handlers[nsp]
 }
